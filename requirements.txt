@@ -1,0 +1,10 @@
+Django
+psycopg2-binary
+python-dotenv
+pandas
+boto3
+django-storages
+djangorestframework
+django-extensions
+pygraphviz
+django-cors-headers
