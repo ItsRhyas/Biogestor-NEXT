@@ -1,26 +1,21 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
+    ProductoViewSet,
+    InsumoViewSet,
     CrearProductoConInsumosView,
-    ProductoListCreateView, ProductoDetailView,
-    InsumoListCreateView, InsumoDetailView,
     obtener_insumos
 )
 
+router = DefaultRouter()
+router.register(r'productos', ProductoViewSet)
+router.register(r'insumos', InsumoViewSet)
+
 urlpatterns = [
-    # Productos
-    path('productos/', ProductoListCreateView.as_view(),
-         name='productos-list-create'),
-    path('productos/<int:pk>/', ProductoDetailView.as_view(),
-         name='productos-detail'),
+    path('', include(router.urls)),  # Cruds automaticos
 
-    # Insumos
-    path('insumos/', InsumoListCreateView.as_view(), name='insumos-list-create'),
-    path('insumos/<int:pk>/', InsumoDetailView.as_view(), name='insumos-detail'),
-
-    # Crear producto con insumos
+    # endpoints extra:
     path('productos/crear_con_insumos/',
          CrearProductoConInsumosView.as_view(), name='crear-producto-insumos'),
-
-    # Obtener insumos por lista de IDs de productos
-    path('productos/insumos/', obtener_insumos, name='obtener-insumos'),
+    path('producto-insumos/', obtener_insumos, name='obtener-insumos'),
 ]

@@ -10,13 +10,13 @@ class ProductoSerializer (serializers.ModelSerializer):
 
 
 class InsumoSerializer (serializers.ModelSerializer):
-    # POST para ver la informacion de cada insumo
+    # GET para ver la informacion de cada insumo
     class Meta:
         model = Insumo
         fields = ['id', 'nombre', 'unidad_medida']
 
 
-class ProductoInsumoSerializer(serializers.Serializer):
+class ProductoInsumoSerializer(serializers.ModelSerializer):
     producto = ProductoSerializer()
     insumos = serializers.ListField(child=serializers.DictField())
 

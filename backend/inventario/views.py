@@ -1,10 +1,22 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Producto, Insumo, ProductoInsumo
 from .serializers import ProductoSerializer, InsumoSerializer, ProductoInsumoSerializer
 
-# Crear producto con sus insumos
+
+# crud de DRF para productos e insumos
+
+class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all()
+    serializer_class = ProductoSerializer
+
+
+class InsumoViewSet(viewsets.ModelViewSet):
+    queryset = Insumo.objects.all()
+    serializer_class = InsumoSerializer
+
+# personalizado para crear productos con insumos relacionados (de negocio segun chapi)
 
 
 class CrearProductoConInsumosView(generics.CreateAPIView):
@@ -19,28 +31,6 @@ class CrearProductoConInsumosView(generics.CreateAPIView):
             'producto': ProductoSerializer(producto_creado).data,
             'relaciones_creadas': len(request.data.get('insumos', []))
         }, status=status.HTTP_201_CREATED)
-
-
-# CRUD productos
-class ProductoListCreateView(generics.ListCreateAPIView):
-    queryset = Producto.objects.all()
-    serializer_class = ProductoSerializer
-
-
-class ProductoDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Producto.objects.all()
-    serializer_class = ProductoSerializer
-
-
-# CRUD insumos
-class InsumoListCreateView(generics.ListCreateAPIView):
-    queryset = Insumo.objects.all()
-    serializer_class = InsumoSerializer
-
-
-class InsumoDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Insumo.objects.all()
-    serializer_class = InsumoSerializer
 
 
 # Obtener insumos de productos específicos
