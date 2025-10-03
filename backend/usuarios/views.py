@@ -1,129 +1,181 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth.models import User, Permission
-from django.contrib.auth import login, logout, authenticate
-from django.http import HttpResponse
-from django.contrib.auth.decorators import login_required, user_passes_test
-from .models import Perfil
-import pandas as pd
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.contrib.auth.models import User
+from .serializers import (
+    RegistrarUsuario,
+    ValidarAprobacion,
+    UsuarioSerializer
+)
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+
+# Le sabe chapi a los views
 
 
-PERMISOS_VISIBLES = {
-    'add_productoinsumo': 'Crear producto',
-    'change_productoinsumo': 'Modificar producto',
-    'delete_productoinsumo': 'Eliminar producto',
-    'view_productoinsumo': 'Ver inventario'
-}
+# Enpoint para crear usuario
+@api_view(['POST'])
+def crear_usuario(request):
+    # Crea un nuevo usuario pero sin aprobacion
+    if request.method == 'POST':
+        serializer = RegistrarUsuario(data=request.data)
 
-def signup(request):
-    print(User.objects.count())
+        if serializer.is_valid():
+            usuario = serializer.save()
 
-    if request.method == 'GET':
-        return render(request, 'signup.html', {
-            'form': UserCreationForm
+            # Serializar el usuario creado para la respuesta
+            usuario_serializer = UsuarioSerializer(usuario)
+
+            return Response({
+                'mensaje': 'Usuario registrado exitosamente. Espera aprobación del administrador.',
+                'usuario': usuario_serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Endpoint para iniciar sesión
+
+
+class IniciarSesionView(TokenObtainPairView):
+    """
+    Inicia sesión y devuelve tokens + información del usuario
+    """
+    serializer_class = ValidarAprobacion
+
+# Endpoint para cerrar sesióm
+
+
+def cerrar_sesion(request):
+    """
+    Cierra sesión invalidando el token de refresh
+    """
+    try:
+        # Obtener el token de refresh del cuerpo de la solicitud
+        refresh_token = request.data.get('refresh_token')
+
+        if not refresh_token:
+            return Response(
+                {'error': 'Token de refresh requerido'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Invalidar el token
+        token = RefreshToken(refresh_token)
+        token.blacklist()
+
+        return Response({
+            'mensaje': 'Sesión cerrada exitosamente'
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {'error': 'Token inválido'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+# Endpoint para aprobar usuarios
+
+
+@api_view(['POST'])
+def aprobar_usuario(request, usuario_id):
+    """
+    Aprueba un usuario (solo para administradores)
+    """
+    # Verificar si el usuario actual es staff/admin
+    if not request.user.is_staff:
+        return Response(
+            {'error': 'No tienes permisos para realizar esta acción'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        usuario = User.objects.get(id=usuario_id)
+
+        # Verificar si el usuario tiene perfil
+        if not hasattr(usuario, 'perfil'):
+            return Response(
+                {'error': 'El usuario no tiene perfil'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Aprobar el usuario
+        usuario.perfil.aprobado = True
+        usuario.perfil.save()
+
+        # Serializar el usuario actualizado
+        usuario_serializer = UsuarioSerializer(usuario)
+
+        return Response({
+            'mensaje': f'Usuario {usuario.username} aprobado exitosamente',
+            'usuario': usuario_serializer.data
         })
 
-    elif request.method == 'POST':
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Usuario no encontrado'},
+            status=status.HTTP_404_NOT_FOUND
+        )
 
-        if request.POST['password1'] == request.POST['password2']:
-            try:
-                user = User.objects.create_user(
-                    username=request.POST['username'],
-                    password=request.POST['password1'])
-
-                if user.is_superuser:
-                    return redirect('signin')
-
-                return render(request, 'signup.html', {
-                    'form': UserCreationForm,
-                    "error": 'Cuesta creada correctamente. Debe esperar aprbacion del administrador'
-                })
-            except:
-                return render(request, 'signup.html', {
-                    'form': UserCreationForm,
-                    "error": 'El usuario ya existe'
-                })
-
-        else:
-            return render(request, 'signup.html', {
-                'form': UserCreationForm,
-                "error": 'Las contrase;as no coinciden'
-            })
+# Endpoint para obtener información del usuario
 
 
-@login_required
-def signout(request):
-    logout(request)
-    return redirect('signin')
-
-
-def signin(request):
-
-    if request.method == 'GET':
-        return render(request, 'signin.html', {
-            'form': AuthenticationForm
-        })
-
+@api_view(['GET'])
+def obtener_usuario_actual(request):
+    """
+    Obtiene la información del usuario autenticado
+    """
+    if request.user.is_authenticated:
+        serializer = UsuarioSerializer(request.user)
+        return Response(serializer.data)
     else:
+        return Response(
+            {'error': 'Usuario no autenticado'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
 
-        user = authenticate(
-            request,
-            username=request.POST['username'],
-            password=request.POST['password'])
-        if user is None:
-            return render(request, 'signin.html', {
-                'form': AuthenticationForm,
-                'error': 'Usuario o contrase;a incorrecta'
-            })
-
-        if not user.is_superuser and not user.perfil.aprobado:
-            return render(request, 'signin.html', {
-                'form': AuthenticationForm,
-                'error': 'Tu cuenta a[un no ha sido aprobada por un administrador'
-            })
-        else:
-            login(request, user)
-            return redirect('home')
+# Endpoint para listar todos los usuarios
 
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def aprobar_usuarios(request):
-    pendientes = Perfil.objects.filter(
-        aprobado=False, user__is_superuser=False)
+@api_view(['GET'])
+def listar_usuarios(request):
+    """
+    Lista todos los usuarios (solo para administradores)
+    """
+    # Verificar si el usuario actual es staff/admin
+    if not request.user.is_staff:
+        return Response(
+            {'error': 'No tienes permisos para realizar esta acción'},
+            status=status.HTTP_403_FORBIDDEN
+        )
 
-    if request.method == "POST":
-        user_id = request.POST.get("user_id")
-        perfil = Perfil.objects.get(user_id=user_id)
-        perfil.aprobado = True
-        perfil.save()
+    usuarios = User.objects.all()
+    serializer = UsuarioSerializer(usuarios, many=True)
 
-    return render(request, 'aprobar_usuarios.html', {"pendientes": pendientes})
-
-
-@login_required
-def ver_usuarios(request):
-    aprobados = Perfil.objects.filter(aprobado=True).select_related("user")
-    no_aprobados = Perfil.objects.filter(aprobado=False).select_related("user")
-    todos_permisos = Permission.objects.filter(codename__in=PERMISOS_VISIBLES.keys())
-    permisos_filtrados = [(permiso, PERMISOS_VISIBLES[permiso.codename]) for permiso in todos_permisos]
-
-    return render(request, 'ver_usuarios.html', {
-        'aprobados': aprobados,
-        'no_aprobados': no_aprobados,
-        'permisos_filtrados': permisos_filtrados,
+    return Response({
+        'total': usuarios.count(),
+        'usuarios': serializer.data
     })
 
-def cambiar_permisos(request):
-    if request.method == 'POST':
-        user_id = request.POST.get('user_id')
-        permisos = request.POST.getlist('permisos') 
-        usuario = User.objects.get(id=user_id)
-        usuario.user_permissions.set(Permission.objects.filter(codename__in=permisos))
-        usuario.save()
+# Endpoint para listar usuarios pendientes de aprobación
 
-    return redirect('ver_usuarios')
 
-@login_required
-def home(request):
-    return render(request, 'home.html')
+@api_view(['GET'])
+def usuarios_pendientes(request):
+    """
+    Lista usuarios pendientes de aprobación (solo para administradores)
+    """
+    if not request.user.is_staff:
+        return Response(
+            {'error': 'No tienes permisos para realizar esta acción'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    usuarios_pendientes = User.objects.filter(perfil__aprobado=False)
+    serializer = UsuarioSerializer(usuarios_pendientes, many=True)
+
+    return Response({
+        'total_pendientes': usuarios_pendientes.count(),
+        'usuarios': serializer.data
+    })

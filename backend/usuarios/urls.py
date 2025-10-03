@@ -1,12 +1,28 @@
 from django.urls import path
-from . import views 
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import (
+    crear_usuario,
+    IniciarSesionView,
+    cerrar_sesion,
+    aprobar_usuario,
+    obtener_usuario_actual,
+    listar_usuarios,
+    usuarios_pendientes
+)
 
 urlpatterns = [
-    path('signup/', views.signup, name = 'signup'),
-    path('logout/', views.signout, name = 'logout'),
-    path ('signin/', views.signin, name = 'signin'),
-    path ('home/', views.home, name = 'home'),
-    path('aprobar/', views.aprobar_usuarios, name='aprobar_usuarios'),
-    path('usuarios/', views.ver_usuarios, name='ver_usuarios'),
-    path('Cambiar_permisos/',views.cambiar_permisos, name='cambiar_permisos')
+    # Autenticación
+    path('api/crear-usuario/', crear_usuario, name='crear_usuario'),
+    path('api/iniciar-sesion/', IniciarSesionView.as_view(), name='iniciar_sesion'),
+    path('api/cerrar-sesion/', cerrar_sesion, name='cerrar_sesion'),
+    path('api/refrescar-token/', TokenRefreshView.as_view(), name='refrescar_token'),
+
+    # Usuarios
+    path('api/usuario/actual/', obtener_usuario_actual,
+         name='obtener_usuario_actual'),
+    path('api/usuarios/', listar_usuarios, name='listar_usuarios'),
+    path('api/usuarios/pendientes/', usuarios_pendientes,
+         name='usuarios_pendientes'),
+    path('api/usuario/<int:usuario_id>/aprobar/',
+         aprobar_usuario, name='aprobar_usuario'),
 ]
