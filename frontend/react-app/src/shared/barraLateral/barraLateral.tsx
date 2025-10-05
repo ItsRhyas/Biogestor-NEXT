@@ -119,13 +119,6 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       icon: <LuBookOpen/>,
       color: "#fafafa",
       onClick: () => console.log("Cerrar sesión")
-    },
-    { 
-      label: "Redes", 
-      content: "Manuales y guías",
-      icon: <LuBookOpen/>,
-      color: "#fafafa",
-      onClick: () => console.log("Cerrar sesión")
     }
   ]
 

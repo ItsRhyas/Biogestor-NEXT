@@ -141,7 +141,7 @@ def obtener_usuario_actual(request):
 @api_view(['GET'])
 def listar_usuarios(request):
     """
-    Lista todos los usuarios (solo para administradores)
+    Lista todos los usuarios aprobados (solo para administradores)
     """
     # Verificar si el usuario actual es staff/admin
     if not request.user.is_staff:
@@ -150,7 +150,7 @@ def listar_usuarios(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    usuarios = User.objects.all()
+    usuarios = User.objects.filter(perfil__aprobado=True)
     serializer = UsuarioSerializer(usuarios, many=True)
 
     return Response({

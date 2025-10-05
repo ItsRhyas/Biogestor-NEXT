@@ -1,23 +1,58 @@
-import {BrowserRouter, Routes, Route} from "react-router-dom";
-import { VerProductos } from "./pages/VerProductos";
-import { AgregarProductoInsumos } from "./pages/AgregarProductoInsumos";
-import {Inventory} from "./features/inventario/";
-import { ViewCard } from "./shared/card/";
+// App.tsx
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './components/Login/login';
 import { Register } from './components/Register/register';
-function App(): JSX.Element {
+import { PermisosVista } from './components/Permisos/permisos';
+import './services/interceptor';
+import { useEffect } from 'react';
+import AlertDialog from './shared/popup/popup';
+
+function App() {
+
+  useEffect(() => {
+    // Solo en desarrollo
+    if (import.meta.env.DEV) { // ← Vite usa import.meta.env
+      const token = localStorage.getItem('authToken');
+      const enLogin = window.location.pathname === '/login';
+      const rutaActual = window.location.pathname;
+      
+      if (!token && !enLogin) {
+        console.log('🔧 [MODO DESARROLLO] Redirigiendo a login...');
+        console.log('📁 Ruta actual:', rutaActual);
+        console.log('🔐 Token en localStorage:', token ? 'SÍ existe' : 'NO existe');
+        <Navigate to ="/login"/>
+      } else if (token) {
+        console.log('🔧 [MODO DESARROLLO] Token detectado, sesión activa');
+      }
+    }
+  }, [Navigate]);
+
+
+
+  const isAuthenticated = () => {
+    return localStorage.getItem('authToken') !== null;
+  };
+
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/productos" element={<VerProductos />} />
-        <Route path="/productos/agregar" element={<AgregarProductoInsumos />} />
-        <Route path="/inventario" element={<Inventory />} />
-        <Route path="/card" element={<ViewCard />} />
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            isAuthenticated() ? (
+              <div>Dashboard - Página protegida</div>
+            ) : (
+              <Navigate to="/login" />
+            )
+          } 
+        />
+        <Route path="/permisos" element={<PermisosVista />} />
+        <Route path="/" element={<Navigate to="/dashboard" />} />
+        <Route path="/popup" element={<AlertDialog/>}/>
       </Routes>
-    
-    </BrowserRouter>
+    </Router>
   );
 }
 

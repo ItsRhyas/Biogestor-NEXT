@@ -15,7 +15,7 @@ export const ContenidoBoton = styled.div`
 
 const BotonStyled = styled.button<{
   $size: string;
-  $color: string;
+  $color?: string;
   $disabled: boolean;
   $sinMovimiento?: boolean;
   $centrado?: boolean;

@@ -78,6 +78,16 @@ REST_FRAMEWORK = {
     )
 }
 
+# REST_FRAMEWORK = {
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.IsAuthenticated',  # Por defecto requiere autenticación
+#     ],
+#     'DEFAULT_AUTHENTICATION_CLASSES': [
+#         'rest_framework.authentication.TokenAuthentication',
+#         'rest_framework.authentication.SessionAuthentication',
+#     ],
+# }
+
 SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'ROTATE_REFRESH_TOKENS': True,
@@ -175,20 +185,20 @@ env = environ.Env()
 environ.Env.read_env()
 
 # storages
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-        "OPTIONS": {
-            "location": STATIC_ROOT,
-        }
-    },
-    "default": {
-        "BACKEND": "storages.backends.s3.S3Storage",
-        "OPTIONS": {
-            "bucket_name": env('AWS_STORAGE_BUCKET_NAME'),
+# STORAGES = {
+#     "staticfiles": {
+#         "BACKEND": "django.core.files.storage.FileSystemStorage",
+#         "OPTIONS": {
+#             "location": STATIC_ROOT,
+#         }
+#     },
+#     "default": {
+#         "BACKEND": "storages.backends.s3.S3Storage",
+#         "OPTIONS": {
+#             "bucket_name": env('AWS_STORAGE_BUCKET_NAME'),
 
-            "region_name": env('AWS_S3_REGION_NAME'),
+#             "region_name": env('AWS_S3_REGION_NAME'),
 
-        },
-    },
-}
+#         },
+#     },
+# }

@@ -1,108 +1,49 @@
-import styled from 'styled-components'
+import styled from "styled-components";
 
-const CardContainer= styled.div`
-    width: 350px;
-    height: 400px;
-    background-color: #cafc55;
+interface CardProps {
+    ancho?: number;
+    alto?: number;
+    color?: string;
+    titulo?: string;
+    children?: React.ReactNode;
+}
+
+const CardContainer = styled.div<CardProps>`
+    width: ${props => props.ancho ? `${props.ancho}px` : 'auto'};
+    height: ${props => props.alto ? `${props.alto}px` : 'auto'};
+    background-color: ${props => props.color || '#fafafa'};
     padding: 10px;
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 `;
 
-const Cardbody= styled.div`
-    width: 18rem;
+const Titulo = styled.div`
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    text-align: center; 
+`;
+
+const Cuerpo = styled.div`
     padding: 10px;
-    backgroundColor: #cafc55ff;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    box-sizing: border-box;
 `;
 
+export function Card(props: CardProps) {
+    const { ancho, alto, color, titulo, children } = props;
 
-interface Props {
-    body: string;
-}
-
-function Card (props: Props){
-    const {body} = props;
-
-    return(
-        
-        <CardContainer>
-            <Cardbody>{body}</Cardbody>
+    return (
+        <CardContainer ancho={ancho} alto={alto} color={color} titulo={titulo}>
+            <Titulo>{titulo}</Titulo>
+            <Cuerpo>{children}</Cuerpo>
         </CardContainer>
-        );
-
+    );
 }
-
-export default Card;
-
-
-// function Card (){
-    
-
-//     return(
-//         <div
-//             className="card"
-//             style={{
-//                 width: "350px",
-//                 height: "400px",
-//                 backgroundColor: "#cafc55ff",
-//                 padding: "10px"
-//             }}
-//         >
-//             <div className="card-body" style={{width: "18rem", backgroundColor: "#cafc55ff"}}><Cardbody /></div>
-            
-//         </div>
-
-//         );
-
-// }
-
-// export default Card;
-
-// export function Cardbody (){
-    
-//     return (<h1>Soy un Cardbody</h1>);
-// }
-
-
-
-
-// function Card (props: Props){
-//     const {body} = props;
-
-//     return(
-//         <div
-//             className="card"
-//             style={{
-//                 width: "350px",
-//                 height: "400px",
-//                 backgroundColor: "#cafc55ff",
-//                 padding: "10px"
-//             }}
-//         >
-//             <div className="card-body" style={{width: "18rem", backgroundColor: "#cafc55ff"}}>{body}</div>
-            
-//         </div>
-
-//         );
-
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const Card2: React.FC = () => {
-
-
-    return (0)
-}
-
-
