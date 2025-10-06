@@ -19,6 +19,7 @@ const BotonStyled = styled.button<{
   $disabled: boolean;
   $sinMovimiento?: boolean;
   $centrado?: boolean;
+  $isActive?: boolean;
 }>`
   border: none;
   margin: 0;
@@ -38,7 +39,8 @@ const BotonStyled = styled.button<{
   transition: all 0.3s ease;
   text-align: left;
   justify-content: flex-start;
-  background-color: ${props => props.$color};
+  background-color: ${props => props.$isActive ? '#e0f2f1' : props.$color};
+  border-left: ${props => props.$isActive ? '4px solid #01663d' : 'none'};
   opacity: ${props => props.$disabled ? 0.6 : 1};
   box-sizing: border-box;
 
@@ -98,6 +100,7 @@ export const Boton: React.FC<PropiedadesBoton & { sinMovimiento?: boolean;
     onClick,
     sinMovimiento = false,
     centrado = false,
+    isActive = false,
 }) => {
 
   const manejarClick = () => {
@@ -115,6 +118,7 @@ export const Boton: React.FC<PropiedadesBoton & { sinMovimiento?: boolean;
             disabled={disabled}
             $centrado={centrado}
             $sinMovimiento={sinMovimiento}
+            $isActive={isActive}
             onClick={manejarClick}
             
         >
