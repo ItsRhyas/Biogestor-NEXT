@@ -12,7 +12,7 @@ const DocumentationContainer = styled.div`
 const ContentContainer = styled.div`
   flex: 1;
   display: flex;
-  flexDirection: column;
+  flex-direction: column;  // ← Cambia flexDirection por flex-direction
 `;
 
 const PageContent = styled.div`

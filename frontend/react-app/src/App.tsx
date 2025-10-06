@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import AlertDialog from './shared/popup/popup';
 
 function App() {
-  const [currentView, setCurrentView] = useState('Dashboard');
+  const [currentView, setCurrentView] = useState('Sensores');
 
   useEffect(() => {
     // Solo en desarrollo
@@ -50,7 +50,7 @@ function App() {
         
         {/* Rutas protegidas con layout principal */}
         <Route 
-          path="/dashboard" 
+          path="/perfil" 
           element={
             <ProtectedRoute>
               <Dashboard />
@@ -112,7 +112,7 @@ function App() {
           } 
         />
         
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+        <Route path="/" element={<Navigate to="/sensores" />} />
         <Route path="/popup" element={<AlertDialog/>}/>
       </Routes>
     </Router>

@@ -2,34 +2,226 @@ import React from 'react';
 import { Card } from '../../shared/card/card';
 import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import styled from 'styled-components';
+
+interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  perfil: {
+    aprobado: boolean;
+  };
+}
 
 interface DashboardStats {
   sensoresActivos: number;
   reportesGenerados: number;
-  biodigestoresConectados: number;
 }
 
-interface BiodigestorStatus {
-  temperatura: string;
-  ph: string;
-  presion: string;
-  nivelGas: string;
-  biogas24h: string;
-  fertilizante24h: string;
-  estadoOperativo: string;
-}
+// Styled Components
+const DashboardContainer = styled.div`
+  display: flex;
+  height: 100vh;
+  background-color: #f8f9fa;
+`;
+
+const MainContent = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+`;
+
+const ContentArea = styled.div`
+  padding: 24px;
+  flex: 1;
+`;
+
+const ProfileContainer = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+`;
+
+const Avatar = styled.div`
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-right: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+`;
+
+const UserInfo = styled.div`
+  flex: 1;
+  
+  h3 {
+    margin: 0 0 0.5rem 0;
+    color: #2d3748;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  p {
+    margin: 0 0 0.5rem 0;
+    color: #718096;
+    font-size: 1rem;
+  }
+`;
+
+const RoleBadge = styled.span`
+  background-color: #fffaf0;
+  color: #dd6b20;
+  border: 1px solid #dd6b20;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const UserDetails = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+`;
+
+const DetailItem = styled.div`
+  p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+  }
+  
+  .label {
+    color: #718096;
+    font-weight: 500;
+  }
+  
+  .value {
+    color: #2d3748;
+    font-weight: 600;
+  }
+`;
+
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+`;
+
+const StatCard = styled(Card)`
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+`;
+
+const StatContent = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const StatIcon = styled.div<{ bgColor: string; color: string }>`
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  background-color: ${props => props.bgColor};
+  color: ${props => props.color};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1.2rem;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+`;
+
+const StatInfo = styled.div`
+  flex: 1;
+`;
+
+const StatValue = styled.h2`
+  margin: 0;
+  font-size: 2.2rem;
+  color: #2d3748;
+  font-weight: 700;
+`;
+
+const StatLabel = styled.p`
+  margin: 0.25rem 0 0 0;
+  color: #718096;
+  font-size: 0.95rem;
+  font-weight: 500;
+`;
+
+const WelcomeSection = styled(Card)`
+  margin-bottom: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  
+  h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+  }
+  
+  p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 1.1rem;
+  }
+`;
+
+const SectionTitle = styled.h2`
+  color: #2d3748;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 1.5rem 0;
+`;
 
 export const Dashboard: React.FC = () => {
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
+  const [userData, setUserData] = useState<UserProfile | null>(null);
   const location = useLocation();
+
+  // Datos del usuario
+  useEffect(() => {
+    const mockUserData: UserProfile = {
+      id: 1,
+      username: "usuario_actual",
+      email: "actual@ejemplo.com",
+      first_name: "Juan",
+      last_name: "Pérez",
+      perfil: {
+        aprobado: true
+      }
+    };
+
+    setUserData(mockUserData);
+  }, []);
 
   // Get current view name based on route
   const getCurrentViewName = () => {
     switch (location.pathname) {
-      case '/dashboard':
+      case '/perfil':
         return 'Perfil';
+      case '/permisos':
+        return 'Permisos';
       case '/sensores':
         return 'Sensores';
       case '/reportes':
@@ -41,237 +233,99 @@ export const Dashboard: React.FC = () => {
       case '/documentacion':
         return 'Documentación Técnica';
       default:
-        return 'Dashboard';
+        return 'Sensores';
     }
   };
 
   const stats: DashboardStats = {
     sensoresActivos: 12,
-    reportesGenerados: 159,
-    biodigestoresConectados: 1
+    reportesGenerados: 159
   };
 
-  const biodigestorStatus: BiodigestorStatus = {
-    temperatura: '37.5°C',
-    ph: '7.1',
-    presion: '1.1 bar',
-    nivelGas: '78%',
-    biogas24h: '23 m³',
-    fertilizante24h: '150 L',
-    estadoOperativo: 'Normal'
+  // Función para obtener las iniciales del usuario
+  const getUserInitials = () => {
+    if (!userData) return 'US';
+    return `${userData.first_name.charAt(0)}${userData.last_name.charAt(0)}`.toUpperCase();
+  };
+
+  // Función para obtener el nombre completo
+  const getFullName = () => {
+    if (!userData) return 'Usuario';
+    return `${userData.first_name} ${userData.last_name}`;
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
+    <DashboardContainer>
       <BarraLateral abierta={sidebarAbierta} />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <MainContent>
         <BarraArriba
           vistaActual={getCurrentViewName()}
           onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
         />
         
-        <div style={{ padding: 20 }}>
+        <ContentArea>
+          {/* Mensaje de Bienvenida */}
+          <WelcomeSection>
+            <h2>¡Bienvenido de nuevo, {userData?.first_name}!</h2>
+            <p>Aquí tienes un resumen de tu actividad y perfil en el sistema.</p>
+          </WelcomeSection>
+
           {/* Perfil de Usuario */}
+          <SectionTitle>Mi Perfil</SectionTitle>
           <Card>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{
-                width: 60,
-                height: 60,
-                borderRadius: '50%',
-                backgroundColor: '#e0f2f1',
-                color: '#28a745',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                marginRight: '1.5rem'
-              }}>
-                JP
-              </div>
-              <div>
-                <h3 style={{ margin: 0, color: '#333' }}>Juan Pérez</h3>
-                <p style={{ margin: 0, color: '#555' }}>juan.perez@biogestor.com</p>
-                <span style={{
-                  backgroundColor: '#f2faf4',
-                  color: '#28a745',
-                  border: '1px solid #28a745',
-                  padding: '0.2rem 0.6rem',
-                  borderRadius: '15px',
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  marginTop: '0.5rem',
-                  display: 'inline-block'
-                }}>
-                  Operador Senior
-                </span>
-              </div>
-            </div>
+            <ProfileContainer>
+              <Avatar>{getUserInitials()}</Avatar>
+              <UserInfo>
+                <h3>{getFullName()}</h3>
+                <p>{userData?.email}</p>
+                <RoleBadge>Colaborador</RoleBadge>
+                
+                <UserDetails>
+                  <DetailItem>
+                    <p className="label">Usuario</p>
+                    <p className="value">{userData?.username}</p>
+                  </DetailItem>
+                  <DetailItem>
+                    <p className="label">Estado de cuenta</p>
+                    <p className="value">
+                      {userData?.perfil.aprobado ? 'Verificada' : 'Pendiente de verificación'}
+                    </p>
+                  </DetailItem>
+                </UserDetails>
+              </UserInfo>
+            </ProfileContainer>
           </Card>
 
           {/* Estadísticas */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1.5rem',
-            marginBottom: '2rem'
-          }}>
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{
-                  width: 45,
-                  height: 45,
-                  borderRadius: '8px',
-                  backgroundColor: '#e0f2f1',
-                  color: '#26a69a',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '1rem',
-                  fontSize: '1.2rem'
-                }}>
+          <SectionTitle>Resumen General</SectionTitle>
+          <StatsGrid>
+            <StatCard>
+              <StatContent>
+                <StatIcon bgColor="#e0f2f1" color="#26a69a">
                   <i className="fas fa-microchip"></i>
-                </div>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: '2rem', color: '#333' }}>{stats.sensoresActivos}</h2>
-                  <p style={{ margin: 0, color: '#555' }}>Sensores Activos</p>
-                </div>
-              </div>
-            </Card>
+                </StatIcon>
+                <StatInfo>
+                  <StatValue>{stats.sensoresActivos}</StatValue>
+                  <StatLabel>Sensores Activos</StatLabel>
+                </StatInfo>
+              </StatContent>
+            </StatCard>
 
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{
-                  width: 45,
-                  height: 45,
-                  borderRadius: '8px',
-                  backgroundColor: '#e3f2fd',
-                  color: '#42a5f5',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '1rem',
-                  fontSize: '1.2rem'
-                }}>
+            <StatCard>
+              <StatContent>
+                <StatIcon bgColor="#e3f2fd" color="#42a5f5">
                   <i className="fas fa-file-alt"></i>
-                </div>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: '2rem', color: '#333' }}>{stats.reportesGenerados}</h2>
-                  <p style={{ margin: 0, color: '#555' }}>Reportes Generados</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{
-                  width: 45,
-                  height: 45,
-                  borderRadius: '8px',
-                  backgroundColor: '#ede7f6',
-                  color: '#7e57c2',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '1rem',
-                  fontSize: '1.2rem'
-                }}>
-                  <i className="fas fa-seedling"></i>
-                </div>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: '2rem', color: '#333' }}>{stats.biodigestoresConectados}</h2>
-                  <p style={{ margin: 0, color: '#555' }}>Biodigestor Conectado</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Estado del Biodigestor */}
-          <Card>
-            <div>
-              <h4 style={{ margin: '0 0 0.25rem 0', color: '#333' }}>Estado Actual del Biodigestor</h4>
-              <p style={{ margin: 0, color: '#555' }}>Datos en tiempo real del sistema principal.</p>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              paddingTop: '1.5rem',
-              marginTop: '1.5rem',
-              borderTop: '1px solid #e0e0e0',
-              flexWrap: 'wrap'
-            }}>
-              <div style={{ flex: 1, minWidth: '250px' }}>
-                <h5 style={{ fontSize: '1rem', color: '#333', marginBottom: '1rem' }}>Parámetros Clave</h5>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    Temperatura 
-                    <span style={{
-                      fontSize: '0.85rem',
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '5px',
-                      fontWeight: 500,
-                      backgroundColor: '#fff3e0',
-                      color: '#ffa726'
-                    }}>
-                      {biodigestorStatus.temperatura}
-                    </span>
-                  </li>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    pH
-                    <span style={{
-                      fontSize: '0.85rem',
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '5px',
-                      fontWeight: 500,
-                      backgroundColor: '#e0f2f1',
-                      color: '#26a69a'
-                    }}>
-                      {biodigestorStatus.ph}
-                    </span>
-                  </li>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    Presión
-                    <span style={{
-                      fontSize: '0.85rem',
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '5px',
-                      fontWeight: 500,
-                      backgroundColor: '#e3f2fd',
-                      color: '#42a5f5'
-                    }}>
-                      {biodigestorStatus.presion}
-                    </span>
-                  </li>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    Nivel de Gas
-                    <span>{biodigestorStatus.nivelGas}</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div style={{ flex: 1, minWidth: '250px' }}>
-                <h5 style={{ fontSize: '1rem', color: '#333', marginBottom: '1rem' }}>Producción Estimada</h5>
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    Biogás (últimas 24h)
-                    <strong style={{ fontWeight: 600, color: '#333' }}>{biodigestorStatus.biogas24h}</strong>
-                  </li>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    Fertilizante (últimas 24h)
-                    <strong style={{ fontWeight: 600, color: '#333' }}>{biodigestorStatus.fertilizante24h}</strong>
-                  </li>
-                  <li style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', color: '#555' }}>
-                    Estado Operativo
-                    <strong style={{ fontWeight: 600, color: '#28a745' }}>{biodigestorStatus.estadoOperativo}</strong>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    </div>
+                </StatIcon>
+                <StatInfo>
+                  <StatValue>{stats.reportesGenerados}</StatValue>
+                  <StatLabel>Reportes Generados</StatLabel>
+                </StatInfo>
+              </StatContent>
+            </StatCard>
+          </StatsGrid>
+        </ContentArea>
+      </MainContent>
+    </DashboardContainer>
   );
 };

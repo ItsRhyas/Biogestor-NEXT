@@ -6,13 +6,37 @@ import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 import { userService } from '../../services/userService';
 import BasicTabs from "../../shared/pestañas/pestañas";
 import { User } from '../../types';
+import { useLocation } from 'react-router-dom';
+
 export const PermisosVista = () => {
-    const [vistaActual, setVistaActual] = useState('Perfil');
     const [sidebarAbierta, setSidebarAbierta] = useState(true);
     const [usuariosAprobados, setUsuariosAprobados] = useState<User[]>([]);
     const [usuariosNoAprobados, setUsuariosNoAprobados] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const location = useLocation();
+
+    // Función para obtener el nombre de la vista actual basado en la ruta
+    const getCurrentViewName = () => {
+        switch (location.pathname) {
+            case '/perfil':
+                return 'Perfil';
+            case '/permisos':
+                return 'Permisos';
+            case '/sensores':
+                return 'Sensores';
+            case '/reportes':
+                return 'Reportes';
+            case '/calculadora':
+                return 'Calculadora de Productos';
+            case '/asistente':
+                return 'Asistente Virtual';
+            case '/documentacion':
+                return 'Documentación Técnica';
+            default:
+                return 'Permisos';
+        }
+    };
 
     const obtenerDatos = async () => {
         setLoading(true);
@@ -33,6 +57,7 @@ export const PermisosVista = () => {
             setLoading(false);
         }
     };
+
     useEffect(() => {
         obtenerDatos();
     }, []);
@@ -52,11 +77,11 @@ export const PermisosVista = () => {
 
     return (
         <div style={{ display: 'flex', height: '100vh' }}>
-            <BarraLateral abierta={sidebarAbierta} onBotonClick={setVistaActual} />
+            <BarraLateral abierta={sidebarAbierta} />
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <BarraArriba
-                    vistaActual={vistaActual}
+                    vistaActual={getCurrentViewName()}
                     onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
                 />
                 <div style={{ padding: 20 }}>

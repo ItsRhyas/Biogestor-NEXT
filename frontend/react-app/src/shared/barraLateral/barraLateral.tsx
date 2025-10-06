@@ -86,9 +86,19 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       content: "Información del usuario",
       icon: <LuUser/>,
       color: "#fafafa",
-      path: "/dashboard",
-      isActive: location.pathname === '/dashboard'
+      path: "/perfil",
+      isActive: location.pathname === '/perfil'
     },
+
+    { 
+      label: "Permisos", 
+      content: "Asignación de permisos",
+      icon: <LuUser/>,
+      color: "#fafafa",
+      path: "/permisos",
+      isActive: location.pathname === '/permisos'
+    },
+
     { 
       label: "Sensores", 
       content: "Monitoreo en tiempo real",
