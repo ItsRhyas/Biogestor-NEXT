@@ -6,35 +6,18 @@ import Button from "@mui/material/Button";
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from "@mui/material/DialogTitle";
-import { Boton, ContenidoBoton } from '../Boton/boton'
-import { aprobarUsuario } from '../../services/UsuariosPermisos'
+import { Boton, ContenidoBoton } from '../Boton/boton';
+import { userService } from '../../services/userService';
+import { User, TabPanelProps } from '../../types';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-interface pestañaProps {
+interface PestañaProps {
     tab1: string;
     tab2: string;
-    
-}
-
-interface Usuario {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  perfil: {
-    aprobado: boolean;
-  };
 }
 
 interface TiposUsuarios {
-  usuariosAprobados: Usuario[];
-  usuariosNoAprobados: Usuario[];
+  usuariosAprobados: User[];
+  usuariosNoAprobados: User[];
 }
 
 function CustomTabPanel(props: TabPanelProps) {
@@ -60,7 +43,7 @@ function a11yProps(index: number) {
   };
 }
 
-export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
+export default function BasicTabs(props: PestañaProps & TiposUsuarios) {
   const [value, setValue] = React.useState(0);
   const {tab1, tab2, usuariosAprobados, usuariosNoAprobados} = props;
 
@@ -80,22 +63,20 @@ export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
     setValue(newValue);
   };
 
-  const handleAprobar = async() => {
-
-    if (!usuarioSeleccionado) return
+  const handleAprobar = async () => {
+    if (!usuarioSeleccionado) return;
 
     setLoading(true);
-    try{
-       await aprobarUsuario (usuarioSeleccionado.id)
-      console.log("El usuario ha sido aprobado")
-
+    try {
+      await userService.approveUser(usuarioSeleccionado.id);
+      console.log("El usuario ha sido aprobado");
       handleClose();
-
-    } catch (error){
-       console.log(error)
-      } finally {
-        setLoading(false)
-      }
+      // Aquí podrías recargar los datos o actualizar el estado local
+    } catch (error) {
+      console.error("Error al aprobar usuario:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Encontrar el usuario que tiene el diálogo abierto
@@ -114,7 +95,7 @@ export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
         <div>
           {usuariosAprobados.map(usuario => (
             <div key={usuario.id} style={{ padding: '10px', borderBottom: '1px solid #ccc' }}>
-              {usuario.first_name} - {usuario.email}
+              <strong>{usuario.first_name} {usuario.last_name}</strong> - {usuario.email}
             </div>
           ))}
         </div>
@@ -154,8 +135,19 @@ export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
               <p><strong>Usuario:</strong> {usuarioSeleccionado.username}</p>
 
               <ContenidoBoton>
-                <Boton label='Aprobar' color='#fafafa' sinMovimiento={true} onClick={handleAprobar}></Boton>
-                <Boton label='Denegar' color='#fafafa' sinMovimiento={true}></Boton>
+                <Boton 
+                  label={loading ? 'Aprobando...' : 'Aprobar'} 
+                  color='#fafafa' 
+                  sinMovimiento={true} 
+                  onClick={handleAprobar}
+                  disabled={loading}
+                />
+                <Boton 
+                  label='Denegar' 
+                  color='#fafafa' 
+                  sinMovimiento={true}
+                  onClick={handleClose}
+                />
               </ContenidoBoton>
             </>
           )}
