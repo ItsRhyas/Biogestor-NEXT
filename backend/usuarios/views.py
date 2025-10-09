@@ -1,16 +1,20 @@
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth.models import User
+from django.db import models
 from .serializers import (
     RegistrarUsuario,
     ValidarAprobacion,
-    UsuarioSerializer
+    UsuarioSerializer,
+    PermisosSerializer
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.tokens import RefreshToken
+from .models import Permisos, Perfil
+from .permisos import PuedeAprobarUsuarios
 
 # Le sabe chapi a los views
 
@@ -118,6 +122,62 @@ def aprobar_usuario(request, usuario_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
+# Endpoint para ver permisos por usuario
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, PuedeAprobarUsuarios])
+def ver_permisos_usuarios(request, usuario_id):
+    try:
+        usuario = User.objects.get(id=usuario_id)
+        
+        if not hasattr(usuario, 'perfil'):
+            return Response ("No existe un perfil asociado al usuario")
+        
+        permisos = usuario.perfil.permisos
+        
+        serializer = PermisosSerializer(permisos)
+        
+        return Response ({
+            "Usuario_id" : usuario_id,
+            "UserName" : usuario.username,
+            "Permisos" : serializer.data
+        })
+    except:
+        return Response("Error al obtener permisos del usuario")
+
+
+
+# Endpoint para cambiar permisos
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, PuedeAprobarUsuarios])
+def cambiar_permisos(request, usuario_id):
+    """
+    Cambian los permisos de un usuario
+    """
+    try:
+        usuario = User.objects.get(id=usuario_id)
+        permisos = usuario.perfil.permisos
+        permisos_actualizados = request.data
+        
+        for campo, valor in permisos_actualizados.items():
+            if hasattr(permisos, campo):
+                setattr(permisos, campo, valor)
+                
+        permisos.save()
+        
+        serializer = PermisosSerializer(permisos)
+        
+        return Response({
+            "Uusuario_id" : usuario_id,
+            "Nombre" : usuario.username,
+            "Permisos" : serializer.data
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'Los permisos no pudieron ser cambiados'}, status=404)
+
+
+
 # Endpoint para obtener información del usuario
 
 
@@ -139,16 +199,17 @@ def obtener_usuario_actual(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, PuedeAprobarUsuarios])  # ✅ Agrega este decorator
 def listar_usuarios(request):
     """
-    Lista todos los usuarios aprobados (solo para administradores)
+    Lista todos los usuarios aprobados (requiere permiso AprobarUsuarios)
     """
-    # Verificar si el usuario actual es staff/admin
-    if not request.user.is_staff:
-        return Response(
-            {'error': 'No tienes permisos para realizar esta acción'},
-            status=status.HTTP_403_FORBIDDEN
-        )
+    # ✅ ELIMINA esta verificación manual
+    # if not request.user.is_staff:
+    #     return Response(
+    #         {'error': 'No tienes permisos para realizar esta acción'},
+    #         status=status.HTTP_403_FORBIDDEN
+    #     )
 
     usuarios = User.objects.filter(perfil__aprobado=True)
     serializer = UsuarioSerializer(usuarios, many=True)
@@ -159,18 +220,18 @@ def listar_usuarios(request):
     })
 
 # Endpoint para listar usuarios pendientes de aprobación
-
-
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, PuedeAprobarUsuarios])  # ✅ Agrega este decorator
 def usuarios_pendientes(request):
     """
-    Lista usuarios pendientes de aprobación (solo para administradores)
+    Lista usuarios pendientes de aprobación (requiere permiso AprobarUsuarios)
     """
-    if not request.user.is_staff:
-        return Response(
-            {'error': 'No tienes permisos para realizar esta acción'},
-            status=status.HTTP_403_FORBIDDEN
-        )
+    # ✅ ELIMINA esta verificación manual
+    # if not request.user.is_staff:
+    #     return Response(
+    #         {'error': 'No tienes permisos para realizar esta acción'},
+    #         status=status.HTTP_403_FORBIDDEN
+    #     )
 
     usuarios_pendientes = User.objects.filter(perfil__aprobado=False)
     serializer = UsuarioSerializer(usuarios_pendientes, many=True)

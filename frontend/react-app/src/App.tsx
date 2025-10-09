@@ -3,11 +3,18 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Login } from './components/Login/login';
 import { Register } from './components/Register/register';
 import { PermisosVista } from './components/Permisos/permisos';
+import { Dashboard } from './features/dashboard/Dashboard';
+import { Sensors } from './features/sensors/Sensors';
+import { Reports } from './features/reports/Reports';
+import { ProductionCalculator } from './features/calculator/ProductionCalculator';
+import { VirtualAssistant } from './features/assistant/VirtualAssistant';
+import { TechnicalDocumentation } from './features/documentation/TechnicalDocumentation';
 import './services/interceptor';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AlertDialog from './shared/popup/popup';
 
 function App() {
+  const [currentView, setCurrentView] = useState('Sensores');
 
   useEffect(() => {
     // Solo en desarrollo
@@ -27,10 +34,12 @@ function App() {
     }
   }, [Navigate]);
 
-
-
   const isAuthenticated = () => {
     return localStorage.getItem('authToken') !== null;
+  };
+
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    return isAuthenticated() ? <>{children}</> : <Navigate to="/login" />;
   };
 
   return (
@@ -38,18 +47,72 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
+        
+        {/* Rutas protegidas con layout principal */}
         <Route 
-          path="/dashboard" 
+          path="/perfil" 
           element={
-            isAuthenticated() ? (
-              <div>Dashboard - Página protegida</div>
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
           } 
         />
-        <Route path="/permisos" element={<PermisosVista />} />
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+        
+        <Route 
+          path="/sensores" 
+          element={
+            <ProtectedRoute>
+              <Sensors />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/reportes" 
+          element={
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/calculadora" 
+          element={
+            <ProtectedRoute>
+              <ProductionCalculator />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/asistente" 
+          element={
+            <ProtectedRoute>
+              <VirtualAssistant />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/documentacion" 
+          element={
+            <ProtectedRoute>
+              <TechnicalDocumentation />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/permisos" 
+          element={
+            <ProtectedRoute>
+              <PermisosVista />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route path="/" element={<Navigate to="/sensores" />} />
         <Route path="/popup" element={<AlertDialog/>}/>
       </Routes>
     </Router>

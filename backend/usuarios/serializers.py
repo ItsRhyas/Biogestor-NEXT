@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.password_validation import validate_password
-from .models import Perfil
+from .models import Perfil, Permisos
 
 
 class PerfilSerializer (serializers.ModelSerializer):
@@ -19,6 +19,11 @@ class UsuarioSerializer (serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email",
                   "first_name", "last_name", "perfil"]
+        
+class PermisosSerializer (serializers.ModelSerializer):
+    class Meta:
+        model = Permisos
+        fields = '__all__'
 
 
 class ValidarAprobacion (TokenObtainPairSerializer):
@@ -112,3 +117,4 @@ class RegistrarUsuario (serializers.ModelSerializer):
     "username": "usuario123",
     "password": "contraseñaSegura123"
 }
+

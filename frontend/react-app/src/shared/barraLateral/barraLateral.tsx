@@ -1,6 +1,7 @@
 import styled from 'styled-components'
 import { Boton } from "../Boton/boton"
 import logo from '../../assets/logo.png'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 import { LuActivity } from "react-icons/lu";
 import { LuFileText } from "react-icons/lu";
@@ -74,6 +75,8 @@ const Menu = styled.div`
 
 
 export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
   console.log('BarraLateral abierta=', abierta);
 
@@ -83,45 +86,70 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       content: "Información del usuario",
       icon: <LuUser/>,
       color: "#fafafa",
-      onClick: () => console.log("Ir a inicio")
+      path: "/perfil",
+      isActive: location.pathname === '/perfil'
     },
+
+    { 
+      label: "Permisos", 
+      content: "Asignación de permisos",
+      icon: <LuUser/>,
+      color: "#fafafa",
+      path: "/permisos",
+      isActive: location.pathname === '/permisos'
+    },
+
     { 
       label: "Sensores", 
       content: "Monitoreo en tiempo real",
       icon: <LuActivity/>,
       color: "#fafafa", 
-      onClick: () => console.log("Ir a perfil")
+      path: "/sensores",
+      isActive: location.pathname === '/sensores'
     },
     { 
       label: "Reportes", 
       content: "Historial y análisis",
       icon: <LuFileText/>,
       color: "#fafafa",
-      onClick: () => console.log("Ir a mensajes")
+      path: "/reportes",
+      isActive: location.pathname === '/reportes'
     },
     { 
       label: "Calculadora de productos", 
       content: "Estimación de producción",
       icon: <LuCalculator/>,
       color: "#fafafa",
-      onClick: () => console.log("Ir a configuración")
+      path: "/calculadora",
+      isActive: location.pathname === '/calculadora'
     },
     { 
       label: "Asistente Virtual", 
       content: "Ayuda especializada",
       icon: <LuBot/>,
       color: "#fafafa",
-      onClick: () => console.log("Ir a ayuda")
+      path: "/asistente",
+      isActive: location.pathname === '/asistente'
     },
     { 
       label: "Documentación Técnica", 
       content: "Manuales y guías",
       icon: <LuBookOpen/>,
       color: "#fafafa",
-      onClick: () => console.log("Cerrar sesión")
+      path: "/documentacion",
+      isActive: location.pathname === '/documentacion'
     }
   ]
 
+  const handleBotonClick = (item: typeof itemsMenu[0]) => {
+    // Navigate to the corresponding route
+    navigate(item.path);
+    
+    // Call the parent callback if provided
+    if (onBotonClick) {
+      onBotonClick(item.label);
+    }
+  }
  
   return (
     <SidebarStyled $abierta={abierta}>
@@ -145,7 +173,8 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
             content={item.content}
             icon={item.icon}
             color={item.color}
-            onClick={() => onBotonClick && onBotonClick(item.label)}
+            isActive={item.isActive}
+            onClick={() => handleBotonClick(item)}
           />
         ))}
       </Menu>

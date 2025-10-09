@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000'; // Ajusta según tu backend
+const API_BASE_URL = 'http://localhost:8000'; 
 
 // Servicio de autenticacion
 export const authService = {

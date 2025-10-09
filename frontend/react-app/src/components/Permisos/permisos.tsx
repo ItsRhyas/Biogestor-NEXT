@@ -1,74 +1,111 @@
 import React, { useEffect } from 'react';
-import { Card } from '../../shared/card/card'
+import { Card } from '../../shared/card/card';
 import { useState } from 'react';
-
-import { BarraLateral  } from '../../shared/barraLateral/barraLateral'
-import { BarraArriba } from '../../shared/barraAriiba/barraArriba'
-import { ListarUsuariosAprobados, ListarUsuariosPendientes } from '../../services/UsuariosPermisos'
-import BasicTabs from "../../shared/pestañas/pestañas"
-import Button from "@mui/material/Button";
-
-interface Usuario {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  perfil: {
-    aprobado: boolean;
-  };
-}
+import { BarraLateral } from '../../shared/barraLateral/barraLateral';
+import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
+import { userService } from '../../services/userService';
+import BasicTabs from "../../shared/pestañas/pestañas";
+import { User } from '../../types';
+import { useLocation } from 'react-router-dom';
 
 export const PermisosVista = () => {
-
-    const [vistaActual, setVistaActual] = useState('Perfil');
     const [sidebarAbierta, setSidebarAbierta] = useState(true);
+    const [usuariosAprobados, setUsuariosAprobados] = useState<User[]>([]);
+    const [usuariosNoAprobados, setUsuariosNoAprobados] = useState<User[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const location = useLocation();
 
-    const [usuariosAprobados, setUsuariosAprobados] = useState<Usuario[]>([]);
-    const [usuariosNoAprobados, setUsuariosNoAprobados] = useState<Usuario[]>([]);
-
-    const ObtenerDatos = async () => {
-        try {
-            const respuesta_aprobados = await ListarUsuariosAprobados ()
-            const respuesta_pendientes = await ListarUsuariosPendientes ()
-
-            const UsuariosAprobados = respuesta_aprobados.usuarios || []
-            const UsuariosPendientes = respuesta_pendientes.usuarios || []
-
-            setUsuariosAprobados(UsuariosAprobados);
-            setUsuariosNoAprobados(UsuariosPendientes);
-
-        } catch (error) {
-            console.error('Error al obtener usuarios:', error);
+    // Función para obtener el nombre de la vista actual basado en la ruta
+    const getCurrentViewName = () => {
+        switch (location.pathname) {
+            case '/perfil':
+                return 'Perfil';
+            case '/permisos':
+                return 'Permisos';
+            case '/sensores':
+                return 'Sensores';
+            case '/reportes':
+                return 'Reportes';
+            case '/calculadora':
+                return 'Calculadora de Productos';
+            case '/asistente':
+                return 'Asistente Virtual';
+            case '/documentacion':
+                return 'Documentación Técnica';
+            default:
+                return 'Permisos';
         }
-}
+    };
 
-    // Usa useEffect para llamar la función
+    const obtenerDatos = async () => {
+        setLoading(true);
+        setError('');
+
+        try {
+            const [respuestaAprobados, respuestaPendientes] = await Promise.all([
+                userService.getApprovedUsers(),
+                userService.getPendingUsers()
+            ]);
+            setUsuariosAprobados(respuestaAprobados.usuarios || []);
+            setUsuariosNoAprobados(respuestaPendientes.usuarios || []);
+
+        } catch (error: any) {
+            console.error('Error al obtener usuarios:', error);
+            setError(error.message || 'Error al cargar los usuarios');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        ObtenerDatos();
+        obtenerDatos();
     }, []);
 
-    return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      <BarraLateral abierta={sidebarAbierta} onBotonClick={setVistaActual} />
+    if (loading) {
+        return (
+            <div style={{
+                display: 'flex',
+                height: '100vh',
+                justifyContent: 'center',
+                alignItems: 'center'
+            }}>
+                <div>Cargando usuarios...</div>
+            </div>
+        );
+    }
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <BarraArriba
-          vistaActual={vistaActual}
-          onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
-        />
-        <div style={{ padding: 20 }}>
-          {/* El código continúa aquí, no me quiero volver a perder */}
-          <Card ancho= {1500}  >
-                <BasicTabs
-                  tab1='Usuarios'
-                  tab2='No aprobados'
-                  usuariosAprobados={usuariosAprobados}
-                  usuariosNoAprobados={usuariosNoAprobados}
+    return (
+        <div style={{ display: 'flex', height: '100vh' }}>
+            <BarraLateral abierta={sidebarAbierta} />
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <BarraArriba
+                    vistaActual={getCurrentViewName()}
+                    onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
                 />
-          </Card>
+                <div style={{ padding: 20 }}>
+                    {error && (
+                        <div style={{
+                            backgroundColor: '#ff6b6b',
+                            color: 'white',
+                            padding: '10px 20px',
+                            borderRadius: '5px',
+                            marginBottom: '20px'
+                        }}>
+                            {error}
+                        </div>
+                    )}
+                    <Card ancho={1500}>
+                        <BasicTabs
+                            tab1='Usuarios Aprobados'
+                            tab2='Usuarios Pendientes'
+                            usuariosAprobados={usuariosAprobados}
+                            usuariosNoAprobados={usuariosNoAprobados}
+                        />
+                    </Card>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
-}
+    );
+};

@@ -6,35 +6,20 @@ import Button from "@mui/material/Button";
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from "@mui/material/DialogTitle";
-import { Boton, ContenidoBoton } from '../Boton/boton'
-import { aprobarUsuario } from '../../services/UsuariosPermisos'
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import { Boton, ContenidoBoton } from '../Boton/boton';
+import { userService } from '../../services/userService';
+import { User, TabPanelProps, Permission } from '../../types';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-interface pestañaProps {
+interface PestañaProps {
     tab1: string;
     tab2: string;
-    
-}
-
-interface Usuario {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  perfil: {
-    aprobado: boolean;
-  };
 }
 
 interface TiposUsuarios {
-  usuariosAprobados: Usuario[];
-  usuariosNoAprobados: Usuario[];
+  usuariosAprobados: User[];
+  usuariosNoAprobados: User[];
 }
 
 function CustomTabPanel(props: TabPanelProps) {
@@ -60,46 +45,191 @@ function a11yProps(index: number) {
   };
 }
 
-export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
+export default function BasicTabs(props: PestañaProps & TiposUsuarios) {
   const [value, setValue] = React.useState(0);
   const {tab1, tab2, usuariosAprobados, usuariosNoAprobados} = props;
 
   // Estado para controlar qué diálogo está abierto
   const [usuarioDialogAbierto, setUsuarioDialogAbierto] = React.useState<number | null>(null);
+  const [usuarioPermisosDialogAbierto, setUsuarioPermisosDialogAbierto] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [permisosLoading, setPermisosLoading] = React.useState(false);
+  const [permisos, setPermisos] = React.useState<Permission[]>([]);
+  const [permisosActualizados, setPermisosActualizados] = React.useState<{[key: string]: boolean}>({});
+  
+  // ✅ NUEVO: Estado para verificar permisos del usuario actual
+  const [usuarioActualPuedeAprobar, setUsuarioActualPuedeAprobar] = React.useState(false);
+  const [usuarioActualPuedeGestionarPermisos, setUsuarioActualPuedeGestionarPermisos] = React.useState(false);
+
+  // ✅ NUEVO: Verificar permisos al cargar el componente
+  React.useEffect(() => {
+    const verificarPermisosUsuarioActual = async () => {
+      try {
+        const currentUser = await userService.getCurrentUser();
+        const currentUserPermissions = await userService.getUserPermissions(currentUser.id);
+        
+        const puedeAprobar = currentUserPermissions.permisos.some(
+          (p: Permission) => p.codename === 'AprobarUsuarios' && p.granted
+        );
+        
+        const puedeGestionarPermisos = currentUserPermissions.permisos.some(
+          (p: Permission) => p.codename === 'AprobarUsuarios' && p.granted
+        );
+        
+        setUsuarioActualPuedeAprobar(puedeAprobar);
+        setUsuarioActualPuedeGestionarPermisos(puedeGestionarPermisos);
+        
+        console.log('Usuario actual puede aprobar:', puedeAprobar);
+        console.log('Usuario actual puede gestionar permisos:', puedeGestionarPermisos);
+      } catch (error) {
+        console.error('Error al verificar permisos:', error);
+      }
+    };
+    
+    verificarPermisosUsuarioActual();
+  }, []);
 
   const handleClickOpen = (usuarioId: number) => {
+    // ✅ VERIFICAR permisos antes de abrir diálogo
+    if (!usuarioActualPuedeAprobar) {
+      alert('No tienes permisos para aprobar usuarios');
+      return;
+    }
     setUsuarioDialogAbierto(usuarioId);
+  };
+
+  const handleClickOpenPermisos = async (usuarioId: number) => {
+    // ✅ VERIFICAR permisos antes de abrir diálogo de permisos
+    if (!usuarioActualPuedeGestionarPermisos) {
+      alert('No tienes permisos para gestionar permisos');
+      return;
+    }
+    
+    setUsuarioPermisosDialogAbierto(usuarioId);
+    setPermisosLoading(true);
+    
+    try {
+      const response = await userService.getUserPermissions(usuarioId);
+      console.log('Respuesta permisos:', response);
+      
+      if (response.permisos && Array.isArray(response.permisos)) {
+        setPermisos(response.permisos);
+        
+        const permisosIniciales: {[key: string]: boolean} = {};
+        response.permisos.forEach(permiso => {
+          permisosIniciales[permiso.codename] = permiso.granted;
+        });
+        setPermisosActualizados(permisosIniciales);
+      } else {
+        console.error('Formato de permisos inesperado:', response);
+      }
+      
+    } catch (error) {
+      console.error('Error al cargar permisos:', error);
+      const permisosEjemplo: Permission[] = [
+        { id: '1', codename: 'AprobarUsuarios', name: 'Aprobar Usuarios', granted: false },
+        { id: '2', codename: 'VerReportes', name: 'Ver Reportes', granted: false },
+        { id: '3', codename: 'GenerarReportes', name: 'Generar Reportes', granted: false },
+        { id: '4', codename: 'VerRecursos', name: 'Ver Recursos', granted: false },
+        { id: '5', codename: 'SubirRecursos', name: 'Subir Recursos', granted: false },
+        { id: '6', codename: 'DescargarRecursos', name: 'Descargar Recursos', granted: false },
+        { id: '7', codename: 'VerDashboard', name: 'Ver Dashboard', granted: false },
+        { id: '8', codename: 'VerInventario', name: 'Ver Inventario', granted: false },
+        { id: '9', codename: 'ModificarInventario', name: 'Modificar Inventario', granted: false },
+        { id: '10', codename: 'InteractuarChatbot', name: 'Interactuar con Chatbot', granted: false },
+        { id: '11', codename: 'VerDocumentacion', name: 'Ver Documentación', granted: false },
+      ];
+      
+      setPermisos(permisosEjemplo);
+      
+      const permisosIniciales: {[key: string]: boolean} = {};
+      permisosEjemplo.forEach(permiso => {
+        permisosIniciales[permiso.codename] = permiso.granted;
+      });
+      setPermisosActualizados(permisosIniciales);
+    } finally {
+      setPermisosLoading(false);
+    }
   };
 
   const handleClose = () => {
     setUsuarioDialogAbierto(null);
   };
 
+  const handleClosePermisos = () => {
+    setUsuarioPermisosDialogAbierto(null);
+    setPermisos([]);
+    setPermisosActualizados({});
+  };
+
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
   };
 
-  const handleAprobar = async() => {
+  const handleAprobar = async () => {
+    if (!usuarioSeleccionado) return;
 
-    if (!usuarioSeleccionado) return
+    // ✅ DOBLE VERIFICACIÓN de permisos
+    if (!usuarioActualPuedeAprobar) {
+      alert('No tienes permisos para aprobar usuarios');
+      return;
+    }
 
     setLoading(true);
-    try{
-       await aprobarUsuario (usuarioSeleccionado.id)
-      console.log("El usuario ha sido aprobado")
-
+    try {
+      await userService.approveUser(usuarioSeleccionado.id);
+      console.log("El usuario ha sido aprobado");
+      alert('Usuario aprobado correctamente');
       handleClose();
+      // Recargar la página para ver cambios
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error al aprobar usuario:", error);
+      alert(error.message || 'Error al aprobar usuario');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    } catch (error){
-       console.log(error)
-      } finally {
-        setLoading(false)
-      }
+  const handlePermisoChange = (permisoCodename: string, granted: boolean) => {
+    setPermisosActualizados(prev => ({
+      ...prev,
+      [permisoCodename]: granted
+    }));
+  };
+
+  const handleGuardarPermisos = async () => {
+    if (!usuarioPermisosSeleccionado) return;
+
+    // ✅ VERIFICAR permisos antes de guardar
+    if (!usuarioActualPuedeGestionarPermisos) {
+      alert('No tienes permisos para gestionar permisos');
+      return;
+    }
+
+    setPermisosLoading(true);
+    try {
+      await userService.updateUserPermissions(usuarioPermisosSeleccionado.id, permisos.map(permiso => ({
+        ...permiso,
+        granted: permisosActualizados[permiso.codename] || false
+      })));
+      console.log('Permisos actualizados:', permisosActualizados);
+      
+      alert('Permisos actualizados correctamente');
+      handleClosePermisos();
+      // Recargar para ver cambios
+      window.location.reload();
+    } catch (error) {
+      console.error('Error al actualizar permisos:', error);
+      alert('Error al actualizar permisos');
+    } finally {
+      setPermisosLoading(false);
+    }
   };
 
   // Encontrar el usuario que tiene el diálogo abierto
   const usuarioSeleccionado = usuariosNoAprobados.find(u => u.id === usuarioDialogAbierto);
+  const usuarioPermisosSeleccionado = usuariosAprobados.find(u => u.id === usuarioPermisosDialogAbierto);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -114,7 +244,15 @@ export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
         <div>
           {usuariosAprobados.map(usuario => (
             <div key={usuario.id} style={{ padding: '10px', borderBottom: '1px solid #ccc' }}>
-              {usuario.first_name} - {usuario.email}
+              <Button 
+                variant="outlined" 
+                onClick={() => handleClickOpenPermisos(usuario.id)}
+                style={{ margin: '5px' }}
+                disabled={!usuarioActualPuedeGestionarPermisos} // ✅ Deshabilitar si no tiene permisos
+              >
+                <strong>{usuario.first_name} {usuario.last_name}</strong> - {usuario.email}
+                {!usuarioActualPuedeGestionarPermisos && " (Sin permisos)"}
+              </Button>
             </div>
           ))}
         </div>
@@ -128,15 +266,17 @@ export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
                 variant="outlined" 
                 onClick={() => handleClickOpen(usuario.id)}
                 style={{ margin: '5px' }}
+                disabled={!usuarioActualPuedeAprobar} // ✅ Deshabilitar si no tiene permisos
               >
                 {usuario.first_name} {usuario.last_name}
+                {!usuarioActualPuedeAprobar && " (Sin permisos)"}
               </Button>
             </div>
           ))}
         </div>
       </CustomTabPanel>
 
-      {/* Dialog fuera del map - solo uno */}
+      {/* Dialog para aprobar usuarios pendientes */}
       <Dialog
         open={usuarioDialogAbierto !== null}
         onClose={handleClose}
@@ -154,8 +294,91 @@ export default function BasicTabs(props: pestañaProps & TiposUsuarios) {
               <p><strong>Usuario:</strong> {usuarioSeleccionado.username}</p>
 
               <ContenidoBoton>
-                <Boton label='Aprobar' color='#fafafa' sinMovimiento={true} onClick={handleAprobar}></Boton>
-                <Boton label='Denegar' color='#fafafa' sinMovimiento={true}></Boton>
+                {usuarioActualPuedeAprobar ? (
+                  <Boton 
+                    label={loading ? 'Aprobando...' : 'Aprobar'} 
+                    color='#fafafa' 
+                    sinMovimiento={true} 
+                    onClick={handleAprobar}
+                    disabled={loading}
+                  />
+                ) : (
+                  <p style={{ color: 'red', padding: '10px' }}>No tienes permisos para aprobar usuarios</p>
+                )}
+                <Boton 
+                  label='Cancelar' 
+                  color='#fafafa' 
+                  sinMovimiento={true}
+                  onClick={handleClose}
+                />
+              </ContenidoBoton>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para gestionar permisos de usuarios aprobados */}
+      <Dialog
+        open={usuarioPermisosDialogAbierto !== null}
+        onClose={handleClosePermisos}
+        aria-labelledby="permisos-dialog-title"
+        aria-describedby="permisos-dialog-description"
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle id="permisos-dialog-title">
+          {"Gestión de Permisos"}
+        </DialogTitle>
+        <DialogContent>
+          {usuarioPermisosSeleccionado && (
+            <>
+              <div style={{ marginBottom: '20px' }}>
+                <p><strong>Usuario:</strong> {usuarioPermisosSeleccionado.first_name} {usuarioPermisosSeleccionado.last_name}</p>
+                <p><strong>Email:</strong> {usuarioPermisosSeleccionado.email}</p>
+                <p><strong>Username:</strong> {usuarioPermisosSeleccionado.username}</p>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <h3>Permisos:</h3>
+                {permisosLoading ? (
+                  <div>Cargando permisos...</div>
+                ) : usuarioActualPuedeGestionarPermisos ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {permisos.map(permiso => (
+                      <FormControlLabel
+                        key={permiso.id}
+                        control={
+                          <Switch
+                            checked={permisosActualizados[permiso.codename] || false}
+                            onChange={(e) => handlePermisoChange(permiso.codename, e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label={permiso.name}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: 'red' }}>No tienes permisos para gestionar permisos</p>
+                )}
+              </div>
+
+              <ContenidoBoton>
+                {usuarioActualPuedeGestionarPermisos ? (
+                  <Boton 
+                    label={permisosLoading ? 'Guardando...' : 'Guardar Cambios'} 
+                    color='#fafafa' 
+                    sinMovimiento={true} 
+                    onClick={handleGuardarPermisos}
+                    disabled={permisosLoading}
+                  />
+                ) : null}
+                <Boton 
+                  label='Cancelar' 
+                  color='#fafafa' 
+                  sinMovimiento={true}
+                  onClick={handleClosePermisos}
+                />
               </ContenidoBoton>
             </>
           )}
