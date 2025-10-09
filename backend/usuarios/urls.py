@@ -7,7 +7,9 @@ from .views import (
     aprobar_usuario,
     obtener_usuario_actual,
     listar_usuarios,
-    usuarios_pendientes
+    usuarios_pendientes,
+    ver_permisos_usuarios,
+    cambiar_permisos
 )
 
 urlpatterns = [
@@ -25,4 +27,9 @@ urlpatterns = [
          name='usuarios_pendientes'),
     path('api/usuario/<int:usuario_id>/aprobar/',
          aprobar_usuario, name='aprobar_usuario'),
+    
+     path('api/usuarios/<int:usuario_id>/ver-permisos/', ver_permisos_usuarios, name='ver_permisos'),
+    
+    path('api/usuarios/<int:usuario_id>/cambiar-permisos/', cambiar_permisos, name='cambiar_permisos'),
+    
 ]

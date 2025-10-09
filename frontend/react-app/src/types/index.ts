@@ -11,6 +11,19 @@ export interface User {
   };
 }
 
+export interface Permission {
+  id: string;
+  codename: string;
+  name: string;
+  granted: boolean;
+}
+
+export interface UserPermissions {
+  usuario_id: number;
+  username: string;
+  permisos: Permission[];
+}
+
 export interface LoginCredentials {
   username: string;
   password: string;
