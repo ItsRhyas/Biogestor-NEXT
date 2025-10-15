@@ -28,13 +28,13 @@ urlpatterns = [
     # Usuarios
     path('api/usuario/actual/', obtener_usuario_actual,
          name='obtener_usuario_actual'),
-    path('api/usuarios/', listar_usuarios, name='listar_usuarios'),
-    path('api/usuarios/pendientes/', usuarios_pendientes,
+    path('api/<str:nombre_institucion>/usuarios/', listar_usuarios, name='listar_usuarios'),
+    path('api/<str:nombre_institucion>/usuarios/pendientes/', usuarios_pendientes,
          name='usuarios_pendientes'),
     path('api/usuario/<int:usuario_id>/aprobar/',
          aprobar_usuario, name='aprobar_usuario'),
     
-     path('api/usuarios/<int:usuario_id>/ver-permisos/', ver_permisos_usuarios, name='ver_permisos'),
+     path('api/<str:nombre_institucion>/usuarios/<int:usuario_id>/ver-permisos/', ver_permisos_usuarios, name='ver_permisos'),
     
     path('api/usuarios/<int:usuario_id>/cambiar-permisos/', cambiar_permisos, name='cambiar_permisos'),
     

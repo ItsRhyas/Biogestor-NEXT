@@ -30,7 +30,7 @@ class Perfil(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='perfil')
     aprobado = models.BooleanField(default=False)
-    permisos = models.ForeignKey(Permisos, on_delete=models.CASCADE)
+    permisos = models.ForeignKey(Permisos, on_delete=models.CASCADE, related_name='permisos')
     
     institucion = models.ForeignKey(Instituciones, on_delete=models.CASCADE)
 

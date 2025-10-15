@@ -185,20 +185,22 @@ env = environ.Env()
 environ.Env.read_env()
 
 # storages
-# STORAGES = {
-#     "staticfiles": {
-#         "BACKEND": "django.core.files.storage.FileSystemStorage",
-#         "OPTIONS": {
-#             "location": STATIC_ROOT,
-#         }
-#     },
-#     "default": {
-#         "BACKEND": "storages.backends.s3.S3Storage",
-#         "OPTIONS": {
-#             "bucket_name": env('AWS_STORAGE_BUCKET_NAME'),
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {
+            "location": STATIC_ROOT,
+        }
+    },
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": env('AWS_STORAGE_BUCKET_NAME'),
 
-#             "region_name": env('AWS_S3_REGION_NAME'),
+            "region_name": env('AWS_S3_REGION_NAME'),
+            "access_key": env('AWS_ACCESS_KEY_ID'),
+            "secret_key": env('AWS_SECRET_ACCESS_KEY'),
 
-#         },
-#     },
-# }
+        },
+    },
+}

@@ -1,8 +1,14 @@
 import axios from "axios";
 
+const getInstitucionActual = (): string => {
+  return localStorage.getItem('institucionActual') || '';
+};
+
+
 export const ListarUsuariosAprobados = async () => {
   try {
-    const response = await axios.get("http://localhost:8000/api/usuarios/");
+    const institucion = getInstitucionActual();
+    const response = await axios.get(`http://localhost:8000/api/${institucion}/usuarios/`);
     return response.data;
   } catch (error) {
     console.error("Error en ListarUsuarios:", error);
