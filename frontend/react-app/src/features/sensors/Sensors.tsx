@@ -4,12 +4,42 @@ import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { sensorService, Sensor, SensorReading } from '../../services/sensorService';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+// Registrar componentes de Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface SensorData {
   temperatura: number;
   ph: number;
   presion: number;
   produccionGas: number;
+}
+
+interface SensorWithData extends Sensor {
+  currentValue: number | null;
+  historicalData: SensorReading[];
 }
 
 interface SensorSummary {
@@ -119,74 +149,297 @@ const ChartDescription = styled.p`
   color: #555;
 `;
 
-const ChartCanvas = styled.canvas`
+const ChartContainer = styled.div`
   width: 100%;
   height: 300px;
+  position: relative;
 `;
 
 export const Sensors: React.FC = () => {
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
-  const [sensorData, setSensorData] = useState<SensorData>({
-    temperatura: 37.5,
-    ph: 7.1,
-    presion: 1.1,
-    produccionGas: 23
-  });
+  const [sensors, setSensors] = useState<SensorWithData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const location = useLocation();
 
-  const tempChartRef = useRef<HTMLCanvasElement>(null);
-  const phChartRef = useRef<HTMLCanvasElement>(null);
-  const pressureChartRef = useRef<HTMLCanvasElement>(null);
-  const gasChartRef = useRef<HTMLCanvasElement>(null);
+  // Función para preparar datos del gráfico
+  const prepareChartData = (sensor: SensorWithData) => {
+    const labels = sensor.historicalData.map(d => {
+      const date = new Date(d.time * 1000);
+      return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    });
 
-  const sensorSummaries: SensorSummary[] = [
-    {
-      label: 'Temperatura Actual',
-      value: `${sensorData.temperatura}°C`,
-      status: 'Estable',
-      icon: 'fas fa-thermometer-half',
-      color: '#26a69a',
-      borderColor: '#26a69a'
+    return {
+      labels,
+      datasets: [
+        {
+          label: `${sensor.name} (${sensor.unit})`,
+          data: sensor.historicalData.map(d => d.value),
+          borderColor: sensor.color,
+          backgroundColor: `${sensor.color}33`,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2,
+        }
+      ]
+    };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+      }
     },
-    {
-      label: 'Nivel de pH',
-      value: sensorData.ph.toString(),
-      status: 'Neutro',
-      icon: 'fas fa-flask',
-      color: '#42a5f5',
-      borderColor: '#42a5f5'
+    scales: {
+      x: {
+        display: true,
+        grid: {
+          display: false
+        },
+        ticks: {
+          maxTicksLimit: 8
+        }
+      },
+      y: {
+        display: true,
+        grid: {
+          color: '#e0e0e0'
+        }
+      }
     },
-    {
-      label: 'Presión de Gas',
-      value: `${sensorData.presion} bar`,
-      status: 'Óptima',
-      icon: 'fas fa-tachometer-alt',
-      color: '#ffa726',
-      borderColor: '#ffa726'
-    },
-    {
-      label: 'Producción Biogás',
-      value: `${sensorData.produccionGas} m³/día`,
-      status: 'Alta',
-      icon: 'fas fa-gas-pump',
-      color: '#7e57c2',
-      borderColor: '#7e57c2'
+    interaction: {
+      mode: 'nearest' as const,
+      axis: 'x' as const,
+      intersect: false
     }
-  ];
+  };
+
+  // Función para obtener el estado del sensor basado en umbrales
+  const getSensorStatus = (sensor: SensorWithData): string => {
+    if (sensor.currentValue === null) return 'Sin datos';
+    
+    if (sensor.threshold_min !== null && sensor.currentValue < sensor.threshold_min) {
+      return 'Bajo';
+    }
+    if (sensor.threshold_max !== null && sensor.currentValue > sensor.threshold_max) {
+      return 'Alto';
+    }
+    return 'Normal';
+  };
+
+  // Generar datos históricos simulados realistas para biodigestor (últimas 24 horas)
+  const generateMockHistoricalData = (
+    baseValue: number, 
+    variation: number, 
+    sensorType: 'temperatura' | 'ph' | 'presion' | 'gas'
+  ): SensorReading[] => {
+    const data: SensorReading[] = [];
+    const now = Date.now() / 1000;
+    const hoursAgo24 = 24 * 60 * 60;
+    const interval = 5 * 60; // Cada 5 minutos
+    
+    let currentValue = baseValue;
+    
+    for (let i = hoursAgo24; i >= 0; i -= interval) {
+      const hourOfDay = new Date((now - i) * 1000).getHours();
+      
+      // Patrones específicos por tipo de sensor
+      switch (sensorType) {
+        case 'temperatura':
+          // Ciclo diurno: más calor durante el día (10am-6pm)
+          const tempCycle = Math.sin((hourOfDay - 6) * Math.PI / 12) * 1.5;
+          currentValue = baseValue + tempCycle + (Math.random() - 0.5) * 0.3;
+          break;
+          
+        case 'ph':
+          // pH más estable, pequeñas variaciones graduales
+          currentValue += (Math.random() - 0.5) * 0.05;
+          currentValue = Math.max(6.8, Math.min(7.4, currentValue)); // Mantener rango
+          break;
+          
+        case 'presion':
+          // Presión aumenta gradualmente con producción de gas
+          const pressureTrend = Math.sin(i / (6 * 60 * 60) * Math.PI) * 0.15;
+          currentValue = baseValue + pressureTrend + (Math.random() - 0.5) * 0.05;
+          break;
+          
+        case 'gas':
+          // Producción de gas con picos durante digestión activa
+          const gasCycle = Math.sin((hourOfDay - 8) * Math.PI / 10) * 3;
+          const gasNoise = (Math.random() - 0.5) * 1.5;
+          currentValue = Math.max(18, baseValue + gasCycle + gasNoise);
+          break;
+      }
+      
+      data.push({
+        time: now - i,
+        value: parseFloat(currentValue.toFixed(2))
+      });
+    }
+    
+    return data;
+  };
+
+  // Datos simulados de fallback
+  const getMockSensors = (): SensorWithData[] => {
+    const tempData = generateMockHistoricalData(37.5, 2, 'temperatura');
+    const phData = generateMockHistoricalData(7.1, 0.3, 'ph');
+    const presionData = generateMockHistoricalData(1.1, 0.2, 'presion');
+    const gasData = generateMockHistoricalData(23, 4, 'gas');
+    
+    return [
+      {
+        id: 1,
+        name: 'Temperatura',
+        topic: 'sensor/temperatura',
+        unit: '°C',
+        threshold_min: 30,
+        threshold_max: 42,
+        color: '#26a69a',
+        icon: 'fas fa-thermometer-half',
+        room: 'biodigestor_1',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        currentValue: tempData[tempData.length - 1].value,
+        historicalData: tempData
+      },
+      {
+        id: 2,
+        name: 'Nivel de pH',
+        topic: 'sensor/ph',
+        unit: 'pH',
+        threshold_min: 6.5,
+        threshold_max: 7.5,
+        color: '#42a5f5',
+        icon: 'fas fa-flask',
+        room: 'biodigestor_1',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        currentValue: phData[phData.length - 1].value,
+        historicalData: phData
+      },
+      {
+        id: 3,
+        name: 'Presión de Gas',
+        topic: 'sensor/presion',
+        unit: 'bar',
+        threshold_min: 0.8,
+        threshold_max: 1.5,
+        color: '#ffa726',
+        icon: 'fas fa-tachometer-alt',
+        room: 'biodigestor_1',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        currentValue: presionData[presionData.length - 1].value,
+        historicalData: presionData
+      },
+      {
+        id: 4,
+        name: 'Producción Biogás',
+        topic: 'sensor/gas',
+        unit: 'm³/día',
+        threshold_min: 18,
+        threshold_max: 35,
+        color: '#7e57c2',
+        icon: 'fas fa-gas-pump',
+        room: 'biodigestor_1',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        currentValue: gasData[gasData.length - 1].value,
+        historicalData: gasData
+      }
+    ];
+  };
+
+  // Cargar sensores desde la API
+  const loadSensors = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const sensorsData = await sensorService.getAllSensors();
+      
+      // Si no hay sensores en la API, usar datos simulados
+      if (sensorsData.length === 0) {
+        console.log('No hay sensores en la API, usando datos simulados');
+        setSensors(getMockSensors());
+        setLoading(false);
+        return;
+      }
+      
+      // Obtener datos actuales e históricos para cada sensor
+      const sensorsWithData = await Promise.all(
+        sensorsData.map(async (sensor) => {
+          try {
+            const [readings, historicalData] = await Promise.all([
+              sensorService.getReadings(sensor.id),
+              sensorService.getSensorData(sensor.id, 'day')
+            ]);
+            
+            const currentValue = readings.length > 0 ? readings[0].value : null;
+            
+            return {
+              ...sensor,
+              currentValue,
+              historicalData
+            };
+          } catch (err) {
+            console.error(`Error loading data for sensor ${sensor.id}:`, err);
+            return {
+              ...sensor,
+              currentValue: null,
+              historicalData: []
+            };
+          }
+        })
+      );
+      
+      setSensors(sensorsWithData);
+    } catch (err) {
+      console.error('Error loading sensors:', err);
+      // Si hay error de conexión, usar datos simulados
+      console.log('Backend no disponible, usando datos simulados');
+      setSensors(getMockSensors());
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Simular actualización de datos en tiempo real
+    loadSensors();
+    
+    // Actualizar datos cada 10 segundos
     const interval = setInterval(() => {
-      setSensorData(prev => ({
-        temperatura: 37.5 + (Math.random() - 0.5) * 0.5,
-        ph: 7.1 + (Math.random() - 0.5) * 0.1,
-        presion: 1.1 + (Math.random() - 0.5) * 0.05,
-        produccionGas: 23 + (Math.random() - 0.5) * 2
-      }));
-    }, 5000);
+      loadSensors();
+    }, 10000);
 
     return () => clearInterval(interval);
   }, []);
+
+  // Generar tarjetas de resumen dinámicamente desde los sensores
+  const sensorSummaries: SensorSummary[] = sensors.map(sensor => ({
+    label: sensor.name,
+    value: sensor.currentValue !== null 
+      ? `${sensor.currentValue.toFixed(2)} ${sensor.unit}`
+      : 'Sin datos',
+    status: getSensorStatus(sensor),
+    icon: sensor.icon || 'fas fa-sensor',
+    color: sensor.color,
+    borderColor: sensor.color
+  }));
 
   return (
     <Container>
@@ -199,70 +452,87 @@ export const Sensors: React.FC = () => {
         />
         
         <ContentWrapper>
+          {/* Loading State */}
+          {loading && (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <p>Cargando sensores...</p>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div style={{ 
+              padding: '1rem', 
+              backgroundColor: '#fee', 
+              color: '#c33', 
+              borderRadius: '8px',
+              marginBottom: '1rem'
+            }}>
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {/* Info: Usando datos simulados */}
+          {!loading && sensors.length > 0 && sensors[0].id <= 4 && (
+            <div style={{ 
+              padding: '1rem', 
+              backgroundColor: '#fff3cd', 
+              color: '#856404', 
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              border: '1px solid #ffeaa7'
+            }}>
+              <strong>ℹ️ Modo Demo:</strong> Mostrando datos simulados. Configura sensores reales en el admin de Django para ver datos en vivo.
+            </div>
+          )}
+
           {/* Tarjetas de Resumen */}
-          <SummaryGrid>
-            {sensorSummaries.map((summary, index) => (
-              <SummaryCard key={index} $borderColor={summary.borderColor}>
-                <IconContainer $color={summary.color}>
-                  <i className={summary.icon}></i>
-                </IconContainer>
-                <SummaryContent>
-                  <SummaryLabel>{summary.label}</SummaryLabel>
-                  <SummaryValue>{summary.value}</SummaryValue>
-                  <SummaryStatus $color={summary.color}>
-                    {summary.status}
-                  </SummaryStatus>
-                </SummaryContent>
-              </SummaryCard>
-            ))}
-          </SummaryGrid>
+          {!loading && sensors.length > 0 && (
+            <SummaryGrid>
+              {sensorSummaries.map((summary, index) => (
+                <SummaryCard key={index} $borderColor={summary.borderColor}>
+                  <IconContainer $color={summary.color}>
+                    <i className={summary.icon}></i>
+                  </IconContainer>
+                  <SummaryContent>
+                    <SummaryLabel>{summary.label}</SummaryLabel>
+                    <SummaryValue>{summary.value}</SummaryValue>
+                    <SummaryStatus $color={summary.color}>
+                      {summary.status}
+                    </SummaryStatus>
+                  </SummaryContent>
+                </SummaryCard>
+              ))}
+            </SummaryGrid>
+          )}
 
-          {/* Gráficos */}
-          <ChartsGrid>
-            <ChartCard>
-              <ChartTitle>
-                <ChartIcon className="fas fa-chart-line" />
-                Temperatura (Últimas 24h)
-              </ChartTitle>
-              <ChartDescription>
-                Variación de la temperatura del biodigestor.
-              </ChartDescription>
-              <ChartCanvas ref={tempChartRef} />
-            </ChartCard>
-
-            <ChartCard>
-              <ChartTitle>
-                <ChartIcon className="fas fa-chart-line" />
-                Nivel de pH (Últimas 24h)
-              </ChartTitle>
-              <ChartDescription>
-                Seguimiento de la acidez/alcalinidad.
-              </ChartDescription>
-              <ChartCanvas ref={phChartRef} />
-            </ChartCard>
-
-            <ChartCard>
-              <ChartTitle>
-                <ChartIcon className="fas fa-chart-bar" />
-                Presión (Últimas 24h)
-              </ChartTitle>
-              <ChartDescription>
-                Niveles de presión dentro del biodigestor.
-              </ChartDescription>
-              <ChartCanvas ref={pressureChartRef} />
-            </ChartCard>
-
-            <ChartCard>
-              <ChartTitle>
-                <ChartIcon className="fas fa-chart-area" />
-                Producción de Gas (Últimas 24h)
-              </ChartTitle>
-              <ChartDescription>
-                Volumen de biogás generado.
-              </ChartDescription>
-              <ChartCanvas ref={gasChartRef} />
-            </ChartCard>
-          </ChartsGrid>
+          {/* Gráficos - Mostrar dinámicamente basado en sensores */}
+          {!loading && sensors.length > 0 && (
+            <ChartsGrid>
+              {sensors.slice(0, 4).map((sensor) => (
+                <ChartCard key={sensor.id}>
+                  <ChartTitle>
+                    <ChartIcon className="fas fa-chart-line" />
+                    {sensor.name} (Últimas 24h)
+                  </ChartTitle>
+                  <ChartDescription>
+                    Historial de {sensor.name.toLowerCase()} - {sensor.unit}
+                  </ChartDescription>
+                  {sensor.historicalData.length > 0 ? (
+                    <ChartContainer>
+                      <Line data={prepareChartData(sensor)} options={chartOptions} />
+                    </ChartContainer>
+                  ) : (
+                    <ChartContainer style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <p style={{ textAlign: 'center', color: '#999' }}>
+                        Sin datos históricos disponibles
+                      </p>
+                    </ChartContainer>
+                  )}
+                </ChartCard>
+              ))}
+            </ChartsGrid>
+          )}
         </ContentWrapper>
       </MainContent>
     </Container>
