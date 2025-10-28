@@ -101,4 +101,19 @@ class RegistrarUsuario (serializers.ModelSerializer):
         )
 
         return user
-    
+
+
+{
+    "username": "usuario123",
+    "password": "contraseñaSegura123",
+    "password2": "contraseñaSegura123",
+    "email": "usuario@ejemplo.com",
+    "first_name": "Juan",
+    "last_name": "Pérez"
+}
+
+
+{
+    "username": "usuario123",
+    "password": "contraseñaSegura123"
+}
