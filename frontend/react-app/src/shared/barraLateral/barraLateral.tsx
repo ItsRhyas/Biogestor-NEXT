@@ -6,8 +6,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { LuActivity } from "react-icons/lu";
 import { LuFileText } from "react-icons/lu";
 import { LuUser } from "react-icons/lu";
-import { LuBookOpen } from "react-icons/lu";
-import { LuBot } from "react-icons/lu";
 import { LuCalculator } from "react-icons/lu";
 
 

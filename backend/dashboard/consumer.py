@@ -2,6 +2,8 @@ import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 import paho.mqtt.client as mqtt
+from django.utils import timezone
+from .models import FillingStage, SensorReading
 
 class MQTTWebSocketConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -50,12 +52,47 @@ class MQTTWebSocketConsumer(AsyncWebsocketConsumer):
             data = json.loads(msg.payload.decode())
             print(f"JSON parseado: {data}")
             
+            # Enviar todos los campos numéricos del mensaje MQTT
             filtered_data = {
-                'type': 'sensor_data',
-                'temperatura': data.get('temperatura'),
-                'humedad': data.get('humedad')
+                'type': 'sensor_data'
             }
             
+            # Agregar todos los campos numéricos del mensaje MQTT
+            for key, value in data.items():
+                if isinstance(value, (int, float)):
+                    filtered_data[key] = value
+
+            # Persistencia en DB (si hay etapa activa)
+            try:
+                stage = FillingStage.objects.filter(active=True).order_by('-created_at').first()
+                if stage is not None:
+                    pressure = None
+                    if 'presion' in data:
+                        # Los ejemplos vienen en hPa (p.ej. 1006.65)
+                        pressure = float(data.get('presion'))
+                    biol_flow = None
+                    gas_flow = None
+                    # Opcionales: caudalímetros si existen en payload
+                    for k in ['caudal_biol', 'biol_flow']:
+                        if k in data and isinstance(data[k], (int, float)):
+                            biol_flow = float(data[k])
+                            break
+                    for k in ['caudal_gas', 'gas_flow']:
+                        if k in data and isinstance(data[k], (int, float)):
+                            gas_flow = float(data[k])
+                            break
+
+                    SensorReading.objects.create(
+                        stage=stage,
+                        timestamp=timezone.now(),
+                        pressure_hpa=pressure,
+                        biol_flow=biol_flow,
+                        gas_flow=gas_flow,
+                        raw_payload=data
+                    )
+            except Exception as db_err:
+                print(f"Error guardando lectura de sensor: {db_err}")
+
             print(f"PASO 5: Enviando via WebSocket: {filtered_data}")
             
             asyncio.run_coroutine_threadsafe(

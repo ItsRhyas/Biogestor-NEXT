@@ -1,7 +1,10 @@
 from django import forms
 from django.shortcuts import render
-from .calculators import estimate
+from .calculators import estimate, estimate_timeseries_for_material
 from .forms import CalcForm
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 def form_view(request):
     result = None
@@ -35,3 +38,36 @@ def form_view(request):
     else:
         form = CalcForm()
     return render(request, "biocalc/form.html", {"form": form, "result": result})
+
+
+class EstimateBiogasAPIView(APIView):
+    """
+    API: estimación de producción (serie temporal) para biodigestores de bolsa.
+    Params: material_type (bovino|porcino|vegetal), vs_per_day (kg), temperature (°C),
+            reactor_volume (opcional), HRT (opcional), target_fraction (0-1 opcional)
+    """
+    def post(self, request):
+        try:
+            data = request.data
+            material_type = str(data.get('material_type', 'bovino')).lower()
+            vs_per_day = float(data.get('vs_per_day'))
+            temperature = float(data.get('temperature', 35.0))
+            reactor_volume = data.get('reactor_volume')
+            reactor_volume = float(reactor_volume) if reactor_volume not in (None, '',) else None
+            HRT = data.get('HRT')
+            HRT = float(HRT) if HRT not in (None, '',) else None
+            target_fraction = float(data.get('target_fraction', 0.95))
+
+            series = estimate_timeseries_for_material(
+                material_type=material_type,
+                vs_kg_per_day=vs_per_day,
+                reactor_volume_m3=reactor_volume,
+                temperature_c=temperature,
+                target_fraction=target_fraction,
+                HRT_days=HRT,
+            )
+            return Response(series, status=status.HTTP_200_OK)
+        except (ValueError, KeyError) as e:
+            return Response({"detail": f"Entrada inválida: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"detail": f"Error interno: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

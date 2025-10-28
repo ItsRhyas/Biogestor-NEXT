@@ -8,11 +8,11 @@ import { Sensors } from './features/sensors/Sensors';
 import { Reports } from './features/reports/Reports';
 import { ProductionCalculator } from './features/calculator/ProductionCalculator';
 import './services/interceptor';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import AlertDialog from './shared/popup/popup';
 
 function App() {
-  const [currentView, setCurrentView] = useState('Sensores');
+  // const [currentView, setCurrentView] = useState('Sensores');
 
   useEffect(() => {
     // Solo en desarrollo

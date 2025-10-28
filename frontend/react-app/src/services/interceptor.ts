@@ -3,6 +3,10 @@ import axios from "axios";
 
 console.log("🔧 Interceptor cargado");
 
+// Configure baseURL so relative axios calls hit the Django backend instead of Vite dev server
+// You can set VITE_API_BASE_URL in .env for environments; fallback to localhost:8000
+axios.defaults.baseURL = (import.meta as any)?.env?.VITE_API_BASE_URL || "http://localhost:8000";
+
 // Variable para evitar múltiples refresh simultáneos
 let refreshPromise: Promise<string> | null = null;
 

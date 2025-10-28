@@ -1,4 +1,5 @@
 import math
+from typing import Dict, List, Tuple
 
 e = math.e
 
@@ -13,6 +14,15 @@ DEFAULTS = {
     "fCH4": 0.60,
     "lag": 2.0,           # días
     "HRT": 30.0           # días por defecto si no hay volumen
+}
+
+# Parámetros por tipo de materia orgánica (biodigestor de bolsa)
+# Valores de referencia basados en literatura (ver README_MODEL.md)
+MATERIAL_PARAMS: Dict[str, Dict[str, float]] = {
+    # Y: m3 CH4 / kg VS degradado; fCH4: fracción metano; lag: días; mu_max_ref: 1/día
+    "bovino": {"Y": 0.25, "fCH4": 0.6, "lag": 2.5, "mu_max_ref": 0.25},
+    "porcino": {"Y": 0.28, "fCH4": 0.62, "lag": 2.0, "mu_max_ref": 0.30},
+    "vegetal": {"Y": 0.20, "fCH4": 0.55, "lag": 3.0, "mu_max_ref": 0.20},
 }
 
 def adjust_mu_by_temp(mu_ref, T_ref, Q10, T):
@@ -32,6 +42,75 @@ def gompertz_rate(t, A, mu_g, lam):
     inner = (mu_g * e / A) * (lam - t) + 1.0
     exp_inner = math.exp(inner)
     return A * math.exp(-exp_inner) * exp_inner * (mu_g * e / A)
+
+
+def estimate_timeseries_for_material(
+    material_type: str,
+    vs_kg_per_day: float,
+    reactor_volume_m3: float | None,
+    temperature_c: float,
+    target_fraction: float = 0.95,
+    max_days: int = 120,
+    HRT_days: float | None = None,
+) -> Dict[str, List[float]]:
+    """
+    Genera series de producción diaria y acumulada (m3 de biogás) usando Gompertz modificado
+    para biodigestores de bolsa, ajustando por temperatura y tipo de materia.
+
+    Se detiene cuando la producción acumulada alcanza target_fraction del potencial A o
+    al llegar a max_days.
+    """
+    p = DEFAULTS.copy()
+    # aplicar parámetros por tipo si existen
+    mt = MATERIAL_PARAMS.get(material_type.lower())
+    if mt:
+        p.update(mt)
+
+    if HRT_days is None:
+        HRT_days = p["HRT"]
+
+    # Potencial máximo de metano (m3) para la masa de VS/día
+    A_ch4_potential = p["Y"] * vs_kg_per_day
+    A_biogas = A_ch4_potential / p["fCH4"] if p["fCH4"] > 0 else A_ch4_potential
+
+    # Concentración S (kg VS / m3)
+    if reactor_volume_m3 and reactor_volume_m3 > 0:
+        S = vs_kg_per_day / reactor_volume_m3
+    else:
+        reactor_volume_m3 = (HRT_days * vs_kg_per_day) / 1000.0
+        if reactor_volume_m3 <= 0:
+            reactor_volume_m3 = 1.0
+        S = vs_kg_per_day / reactor_volume_m3
+
+    mu_max = adjust_mu_by_temp(p.get("mu_max_ref", DEFAULTS["mu_max_ref"]), p["T_ref"], p["Q10"], temperature_c)
+    mu_eff = monod_mu(mu_max, S, p["Ks"])
+    mu_g = mu_eff * A_biogas
+    lam = p["lag"]
+
+    days: List[float] = []
+    daily: List[float] = []
+    cumulative: List[float] = []
+
+    cum = 0.0
+    t = 0.0
+    dt = 1.0  # días
+    target = A_biogas * target_fraction
+
+    while t <= max_days and cum < target:
+        rate = max(gompertz_rate(t, A_biogas, mu_g, lam), 0.0)
+        cum = max(gompertz_cumulative(t, A_biogas, mu_g, lam), 0.0)
+        days.append(t)
+        daily.append(rate)
+        cumulative.append(cum)
+        t += dt
+
+    return {
+        "days": days,
+        "daily_biogas_m3": daily,
+        "cumulative_biogas_m3": cumulative,
+        "A_biogas_m3": A_biogas,
+        "params": p,
+    }
 
 def estimate(biowaste_vs_kg_per_day,
              reactor_volume_m3=None,

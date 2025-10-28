@@ -29,6 +29,7 @@ def generar_datos_aleatorios():
         "temperatura": round(random.uniform(20.0, 35.0), 2),
         "humedad": round(random.uniform(40.0, 80.0), 2),
         "presion": round(random.uniform(1000.0, 1020.0), 2),
+        "Calidad": round(random.uniform(90.0,100),2),
         "timestamp": time.time()
     }
 

@@ -120,7 +120,8 @@ class SensorsWebSocketConsumer(AsyncWebsocketConsumer):
                     "ph": 7.1 + (random.random() - 0.5) * 0.1,
                     "pressure": 1.1 + (random.random() - 0.5) * 0.05,
                     "gas_production": 23 + (random.random() - 0.5) * 2,
-                    "humidity": 65 + (random.random() - 0.5) * 5
+                    "humidity": 65 + (random.random() - 0.5) * 5,
+                    "Calidad": 65 + (random.random() - 0.5) * 5
                 }
                 
                 await self.send_sensor_data(sensor_data)
