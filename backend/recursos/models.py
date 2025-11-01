@@ -1,8 +1,6 @@
 from django.db import models
 from django import forms
 from django.contrib.auth.models import User
-from storages.backends.s3 import S3File
-from storages.backends.s3boto3 import S3Boto3Storage
 from uuid import uuid4
 
 

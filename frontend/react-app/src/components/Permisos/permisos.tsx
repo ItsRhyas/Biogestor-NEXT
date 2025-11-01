@@ -1,15 +1,13 @@
 import React, { useEffect } from 'react';
 import { Card } from '../../shared/card/card';
 import { useState } from 'react';
-import { BarraLateral } from '../../shared/barraLateral/barraLateral';
-import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
+import { MainLayout } from '../../shared/layout/MainLayout';
 import { userService } from '../../services/userService';
 import BasicTabs from "../../shared/pestañas/pestañas";
 import { User } from '../../types';
 import { useLocation } from 'react-router-dom';
 
 export const PermisosVista = () => {
-    const [sidebarAbierta, setSidebarAbierta] = useState(true);
     const [usuariosAprobados, setUsuariosAprobados] = useState<User[]>([]);
     const [usuariosNoAprobados, setUsuariosNoAprobados] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
@@ -76,36 +74,28 @@ export const PermisosVista = () => {
     }
 
     return (
-        <div style={{ display: 'flex', height: '100vh' }}>
-            <BarraLateral abierta={sidebarAbierta} />
-
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <BarraArriba
-                    vistaActual={getCurrentViewName()}
-                    onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
-                />
-                <div style={{ padding: 20 }}>
-                    {error && (
-                        <div style={{
-                            backgroundColor: '#ff6b6b',
-                            color: 'white',
-                            padding: '10px 20px',
-                            borderRadius: '5px',
-                            marginBottom: '20px'
-                        }}>
-                            {error}
-                        </div>
-                    )}
-                    <Card ancho={1500}>
-                        <BasicTabs
-                            tab1='Usuarios Aprobados'
-                            tab2='Usuarios Pendientes'
-                            usuariosAprobados={usuariosAprobados}
-                            usuariosNoAprobados={usuariosNoAprobados}
-                        />
-                    </Card>
-                </div>
+        <MainLayout currentView={getCurrentViewName()} onViewChange={() => {}}>
+            <div style={{ padding: 20 }}>
+                {error && (
+                    <div style={{
+                        backgroundColor: '#ff6b6b',
+                        color: 'white',
+                        padding: '10px 20px',
+                        borderRadius: '5px',
+                        marginBottom: '20px'
+                    }}>
+                        {error}
+                    </div>
+                )}
+                <Card ancho={1500}>
+                    <BasicTabs
+                        tab1='Usuarios Aprobados'
+                        tab2='Usuarios Pendientes'
+                        usuariosAprobados={usuariosAprobados}
+                        usuariosNoAprobados={usuariosNoAprobados}
+                    />
+                </Card>
             </div>
-        </div>
+        </MainLayout>
     );
 };

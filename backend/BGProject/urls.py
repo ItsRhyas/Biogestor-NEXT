@@ -8,6 +8,7 @@ urlpatterns = [
     path('', include('usuarios.urls')),
     path('',include('inventario.urls')),
     path('',include('recursos.urls')),
+    path('', include('biocalculadora.urls')),
     path('api/dashboard/', include('dashboard.urls')),
 ]
 

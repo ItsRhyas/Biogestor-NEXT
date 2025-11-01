@@ -11,47 +11,39 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
-from datetime import timedelta
 import os
-import environ
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Initialize environment reader and load .env from backend/.env
-env = environ.Env()
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Use a boolean cast and default to False when not provided
-DEBUG = env.bool("DEBUG", default=False)
+DEBUG = os.getenv('DEBUG', True)
 
-# Hosts permitidos (configurable por entorno). Ej.: ALLOWED_HOSTS=127.0.0.1,localhost,192.168.1.50
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS",
-    default=["127.0.0.1", "localhost"],
-)
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost"
+]
 
 
 # Application definition
 
 INSTALLED_APPS = [
-    'channels',  
     "corsheaders",
-    'storages',
+
     'usuarios.apps.LoginConfig',
     'inventario',
     'recursos',
     'dashboard',
     'biocalculadora',
     'rest_framework',
+    'channels',
     'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -61,23 +53,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework_simplejwt.token_blacklist',
 ]
-
-ASGI_APPLICATION = 'BGProject.asgi.application'
-
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             "hosts": [('127.0.0.1', 6379)],
-#         },
-#     },
-# }
-
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
-    }
-}
 
 MIDDLEWARE = [
 
@@ -109,30 +84,15 @@ REST_FRAMEWORK = {
 # }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'BLACKLIST_AFTER_ROTATION': True,
     'ROTATE_REFRESH_TOKENS': True,
 }
 
-# Orígenes CORS permitidos (configurable por entorno).
-# Ej.: CORS_ALLOWED_ORIGINS=http://localhost:5173,http://192.168.1.50:5173
-CORS_ALLOWED_ORIGINS = env.list(
-    "CORS_ALLOWED_ORIGINS",
-    default=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-    ],
-)
-
-# Opcional: confiar en orígenes para CSRF cuando se use sesión/cookies (JWT normalmente no lo requiere)
-CSRF_TRUSTED_ORIGINS = env.list(
-    "CSRF_TRUSTED_ORIGINS",
-    default=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
-)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8080",
+]
 
 
 ROOT_URLCONF = 'BGProject.urls'
@@ -154,6 +114,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'BGProject.wsgi.application'
+ASGI_APPLICATION = 'BGProject.asgi.application'
 
 
 # Database
@@ -162,10 +123,10 @@ WSGI_APPLICATION = 'BGProject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'biogestor',
-        'USER': 'postgres',
-        'PASSWORD': 'mi_password',
-        'HOST': 'localhost',
+        'NAME': os.getenv("POSTGRES_DB"),
+        'USER': os.getenv("POSTGRES_USER"),
+        'PASSWORD': os.getenv("POSTGRES_PASSWORD"),
+        'HOST': 'db',
         'PORT': '5432',
     }
 }
@@ -217,3 +178,23 @@ STATIC_URL = "/static/"
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+# storages
+# STORAGES = {
+#     "staticfiles": {
+#         "BACKEND": "django.core.files.storage.FileSystemStorage",
+#         "OPTIONS": {
+#             "location": STATIC_ROOT,
+#         }
+#     },
+#     "default": {
+#         "BACKEND": "storages.backends.s3.S3Storage",
+#         "OPTIONS": {
+#             "bucket_name": os.getenv('AWS_STORAGE_BUCKET_NAME'),
+
+#             "region_name": os.getenv('AWS_S3_REGION_NAME'),
+#             "access_key": os.getenv('AWS_ACCESS_KEY_ID'),
+#             "secret_key": os.getenv('AWS_SECRET_ACCESS_KEY'),
+
+#         },
+#     },
+# }

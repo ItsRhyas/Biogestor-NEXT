@@ -76,7 +76,8 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
   const navigate = useNavigate();
   const location = useLocation();
 
-  console.log('BarraLateral abierta=', abierta);
+  // Fuerza la barra abierta en la vista de Permisos para evitar cierres inesperados
+  const abiertaEffective = location.pathname === '/permisos' ? true : abierta;
 
   const itemsMenu = [
     { 
@@ -134,7 +135,7 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
   }
  
   return (
-    <SidebarStyled $abierta={abierta}>
+    <SidebarStyled $abierta={abiertaEffective}>
       <Encabezado>
         
         <Logo src={logo} alt="Biogestor Logo"/>

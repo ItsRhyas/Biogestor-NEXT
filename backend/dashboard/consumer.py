@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from channels.generic.websocket import AsyncWebsocketConsumer
 import paho.mqtt.client as mqtt
 from django.utils import timezone
@@ -24,7 +25,9 @@ class MQTTWebSocketConsumer(AsyncWebsocketConsumer):
         
         try:
             print("PASO 2: Conectando a MQTT...")
-            self.mqtt_client.connect("localhost", 1883, 60)
+            broker_host = os.getenv("MQTT_BROKER_HOST", "mosquitto")
+            broker_port = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+            self.mqtt_client.connect(broker_host, broker_port, 60)
             self.mqtt_client.loop_start()
             print("PASO 2: MQTT loop iniciado")
         except Exception as e:
