@@ -1,17 +1,117 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card } from '../../shared/card/card';
 import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 import styled from 'styled-components';
+import { createReport, getReportHistory, downloadReportFile } from '../../api/dashboard.api';
 
-interface Report {
-  id: number;
-  fecha: string;
-  operador: string;
-  cantidad: string;
-  estado: 'Completado' | 'En Proceso' | 'Fallido';
-  observaciones: string;
-}
+// Styled-components missing definitions
+const ContentWrapper = styled.div`
+  width: 100%;
+  margin: 0;
+  padding: 2rem 1.5rem;
+`;
+
+const WelcomeBanner = styled.div`
+  background: #e6f7ff;
+  padding: 2rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px #eee;
+`;
+
+const WelcomeTitle = styled.h2`
+  margin: 0 0 0.5rem 0;
+  color: #007bff;
+`;
+
+const WelcomeDescription = styled.p`
+  margin: 0;
+  color: #555;
+`;
+
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+`;
+
+const StatCard = styled.div<{ $borderColor?: string }>`
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #eee;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-bottom: 5px solid ${props => props.$borderColor || '#007bff'};
+`;
+
+const StatNumber = styled.div`
+  font-size: 2.2rem;
+  font-weight: bold;
+  color: #333;
+`;
+
+const StatLabel = styled.div`
+  font-size: 1rem;
+  color: #888;
+`;
+
+const FiltersCard = styled.div`
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px #eee;
+  margin-bottom: 2rem;
+`;
+
+const FiltersHeader = styled.div`
+  padding: 1rem 1.5rem 0.5rem 1.5rem;
+`;
+
+const FiltersTitle = styled.h4`
+  margin: 0;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const FiltersContainer = styled.div`
+  display: flex;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem 1.5rem 1.5rem;
+`;
+
+const SearchContainer = styled.div`
+  position: relative;
+  flex: 1;
+`;
+
+const CreateReportButton = styled.button`
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 0.8rem 1.2rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.3s;
+  &:hover {
+    background-color: #0056b3;
+  }
+  &:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+`;
+
+
 
 interface ReportStats {
   total: number;
@@ -30,101 +130,11 @@ const MainContent = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-`;
-
-const ContentWrapper = styled.div`
-  padding: 20px;
-`;
-
-const WelcomeBanner = styled(Card)`
-  background-color: #28a745;
-  color: #000000;
-  padding: 2rem;
-  border-radius: 10px;
-  margin-bottom: 2rem;
-`;
-
-const WelcomeTitle = styled.h2`
-  margin: 0 0 0.5rem 0;
-`;
-
-const WelcomeDescription = styled.p`
-  margin: 0;
-`;
-
-const StatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-`;
-
-const StatCard = styled(Card)<{ $borderColor?: string }>`
-  border-left: 4px solid ${props => props.$borderColor || '#e0e0e0'};
-  padding: 1.5rem;
-`;
-
-const StatNumber = styled.h2`
-  margin: 0;
-  font-size: 2.5rem;
-  color: #333;
-`;
-
-const StatLabel = styled.p`
-  margin: 0;
-  color: #555;
-`;
-
-const FiltersCard = styled(Card)`
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-`;
-
-const FiltersHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-`;
-
-const FiltersTitle = styled.h4`
-  margin: 0;
-  color: #333;
-  display: flex;
-  align-items: center;
-`;
-
-const Icon = styled.i`
-  margin-right: 0.5rem;
-`;
-
-const CreateReportButton = styled.button`
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  padding: 0.6rem 1.2rem;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background-color 0.3s;
-
-  &:hover {
-    background-color: #218838;
-  }
-`;
-
-const FiltersContainer = styled.div`
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
-`;
-
-const SearchContainer = styled.div`
   flex-grow: 1;
   position: relative;
 `;
 
+const Icon = styled.i``;
 const SearchIcon = styled(Icon)`
   position: absolute;
   left: 1rem;
@@ -241,102 +251,101 @@ const TableCell = styled.td`
   color: #555;
 `;
 
-const StatusTag = styled.span<{ $estado: 'Completado' | 'En Proceso' | 'Fallido' }>`
-  display: inline-block;
-  padding: 0.3rem 0.7rem;
-  border-radius: 15px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-align: center;
-  min-width: 80px;
-  
-  ${props => {
-    switch (props.$estado) {
-      case 'Completado':
-        return `
-          background-color: #e6ffed;
-          color: #28a745;
-        `;
-      case 'En Proceso':
-        return `
-          background-color: #fff8e1;
-          color: #ffc107;
-        `;
-      case 'Fallido':
-        return `
-          background-color: #ffe6e6;
-          color: #dc3545;
-        `;
-      default:
-        return `
-          background-color: #f0f0f0;
-          color: #555;
-        `;
-    }
-  }}
-`;
+// (Eliminado) Layout de dos columnas para vista previa
+
+
 
 export const Reports: React.FC = () => {
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  // const [stageClosed, setStageClosed] = useState(false);
+  const [reportType, setReportType] = useState<'normal' | 'final'>('normal');
+  const [observations, setObservations] = useState('');
+  const [reportLinks, setReportLinks] = useState<{ pdf?: string; excel?: string; csv?: string }>({});
+  // (Eliminado) Estado de vista previa
 
-  const stats: ReportStats = {
-    total: 159,
-    completados: 145,
-    enProceso: 8,
-    fallidos: 6
+  // Estado para datos reales
+  const [history, setHistory] = useState<any[]>([]);
+  // const [loading, setLoading] = useState(true); // No usado
+  const [stats, setStats] = useState<ReportStats>({ total: 0, completados: 0, enProceso: 0, fallidos: 0 });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      // setLoading(true); // Eliminar referencia a setLoading
+      try {
+        // Historial de reportes
+        const histRes = await axios.get('/api/dashboard/report/history/');
+        setHistory(histRes.data.history || []);
+        // Estadísticas
+        const total = histRes.data.history.length;
+        const completados = histRes.data.history.filter((h: any) => h.finalizado).length;
+        const enProceso = histRes.data.history.filter((h: any) => h.active).length;
+        const fallidos = 0; // Si hay lógica de fallidos, actualizar aquí
+        setStats({ total, completados, enProceso, fallidos });
+        // Etapa activa
+  // const active = histRes.data.history.find((h: any) => h.active);
+        // Producción actual vs esperada
+        // (Eliminado: setActiveStage y setCurrentProduction)
+  // setStageClosed(!active);
+      } catch (err) {
+        setDownloadError('Error al cargar datos de reportes.');
+      } finally {
+        // setLoading(false); // Eliminar referencia a setLoading
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Filtrado de historial
+
+
+  // (Eliminado) handleDownloadReport no se usa actualmente
+
+  // Nueva función para solicitar reporte
+  const handleCreateReport = async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await createReport(reportType, observations);
+      setReportLinks({ pdf: res.pdf_url, excel: res.excel_url, csv: res.csv_url });
+      // Vista previa eliminada: no establecemos previsualización automática
+      // Actualizar historial
+      const hist = await getReportHistory();
+      setHistory(hist);
+    } catch (err) {
+      // Mostrar detalle de backend si existe
+      const e: any = err;
+      const detail = e?.response?.data?.detail || e?.message || 'Error al solicitar el reporte.';
+      setDownloadError(detail);
+    } finally {
+      setDownloading(false);
+    }
   };
 
-  const reports: Report[] = [
-    {
-      id: 1,
-      fecha: '2024-01-15',
-      operador: 'Juan Pérez',
-      cantidad: '2,500 Kg',
-      estado: 'Completado',
-      observaciones: 'Llenado exitoso con materia orgánica fresca'
-    },
-    {
-      id: 2,
-      fecha: '2024-01-14',
-      operador: 'María García',
-      cantidad: '2,200 Kg',
-      estado: 'Completado',
-      observaciones: 'Mezcla equilibrada de residuos vegetales'
-    },
-    {
-      id: 3,
-      fecha: '2024-01-13',
-      operador: 'Carlos López',
-      cantidad: '2,000 Kg',
-      estado: 'En Proceso',
-      observaciones: 'Llenado parcial, pendiente segunda carga'
-    },
-    {
-      id: 4,
-      fecha: '2024-01-12',
-      operador: 'Ana Rodríguez',
-      cantidad: '2,600 Kg',
-      estado: 'Completado',
-      observaciones: 'Excelente calidad de materia prima'
-    },
-    {
-      id: 5,
-      fecha: '2024-01-11',
-      operador: 'Juan Pérez',
-      cantidad: '2,100 Kg',
-      estado: 'Fallido',
-      observaciones: 'Problema en sistema de bombeo, carga incompleta'
+  // Nueva función para descargar archivo
+  const handleDownloadFile = async (type: 'pdf' | 'excel' | 'csv') => {
+    if (!reportLinks[type]) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const data = await downloadReportFile(reportLinks[type]!);
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `reporte.${type}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setDownloadError('Error al descargar el archivo.');
+    } finally {
+      setDownloading(false);
     }
-  ];
-
-  const filteredReports = reports.filter(report => {
-    const matchesSearch = report.operador.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.observaciones.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'Todos' || report.estado === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  };
 
   return (
     <Container>
@@ -347,7 +356,6 @@ export const Reports: React.FC = () => {
           vistaActual="Reportes"
           onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
         />
-        
         <ContentWrapper>
           {/* Banner de Bienvenida */}
           <WelcomeBanner>
@@ -355,28 +363,27 @@ export const Reports: React.FC = () => {
             <WelcomeDescription>Historial completo de cargas del biodigestor</WelcomeDescription>
           </WelcomeBanner>
 
+
           {/* Estadísticas de Reportes */}
           <StatsGrid>
             <StatCard>
               <StatNumber>{stats.total}</StatNumber>
               <StatLabel>Total Reportes</StatLabel>
             </StatCard>
-
             <StatCard $borderColor="#28a745">
               <StatNumber>{stats.completados}</StatNumber>
               <StatLabel>Completados</StatLabel>
             </StatCard>
-
             <StatCard $borderColor="#ffc107">
               <StatNumber>{stats.enProceso}</StatNumber>
               <StatLabel>En Proceso</StatLabel>
             </StatCard>
-
             <StatCard $borderColor="#dc3545">
               <StatNumber>{stats.fallidos}</StatNumber>
               <StatLabel>Fallidos</StatLabel>
             </StatCard>
           </StatsGrid>
+
 
           {/* Filtros y Búsqueda */}
           <FiltersCard>
@@ -385,12 +392,7 @@ export const Reports: React.FC = () => {
                 <Icon className="fas fa-filter" />
                 Filtros y Búsqueda
               </FiltersTitle>
-              <CreateReportButton>
-                <Icon className="fas fa-plus" />
-                Crear Reporte Automático
-              </CreateReportButton>
             </FiltersHeader>
-
             <FiltersContainer>
               {/* Búsqueda */}
               <SearchContainer>
@@ -402,7 +404,6 @@ export const Reports: React.FC = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </SearchContainer>
-
               {/* Filtro por Estado */}
               <FilterSelectContainer>
                 <FilterSelect
@@ -416,47 +417,106 @@ export const Reports: React.FC = () => {
                 </FilterSelect>
                 <SelectIcon className="fas fa-chevron-down" />
               </FilterSelectContainer>
-
-              <ExportButton>
-                <Icon className="fas fa-download" />
-                Exportar
-              </ExportButton>
             </FiltersContainer>
           </FiltersCard>
 
-          {/* Tabla de Reportes */}
+          {/* Solicitar reporte (ocupa ancho completo) */}
+          <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#fff', borderRadius: '10px', boxShadow: '0 2px 8px #eee' }}>
+            <h4>Solicitar Reporte</h4>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <select value={reportType} onChange={e => setReportType(e.target.value as 'normal' | 'final')}>
+                <option value="normal">Reporte Regular</option>
+                <option value="final">Reporte Final de Producción</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Observaciones opcionales"
+                value={observations}
+                onChange={e => setObservations(e.target.value)}
+                style={{ flex: 1, minWidth: 240, padding: '0.5rem' }}
+              />
+              <CreateReportButton disabled={downloading} onClick={handleCreateReport}>
+                <Icon className="fas fa-file-alt" /> Solicitar Reporte
+              </CreateReportButton>
+            </div>
+            {/* Botones de descarga si hay links */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              {reportLinks.pdf && (
+                <ExportButton onClick={() => handleDownloadFile('pdf')}>
+                  <Icon className="fas fa-download" /> Descargar PDF
+                </ExportButton>
+              )}
+              {reportLinks.excel && (
+                <ExportButton onClick={() => handleDownloadFile('excel')}>
+                  <Icon className="fas fa-download" /> Descargar Excel
+                </ExportButton>
+              )}
+              {reportLinks.csv && (
+                <ExportButton onClick={() => handleDownloadFile('csv')}>
+                  <Icon className="fas fa-download" /> Descargar CSV de lecturas
+                </ExportButton>
+              )}
+            </div>
+            {downloading && <p>Procesando reporte...</p>}
+            {downloadError && <p style={{ color: 'red' }}>{downloadError}</p>}
+          </div>
+
+
+          {/* Historial de Reportes */}
           <TableCard>
             <TableTitle>
               <Icon className="fas fa-history" />
               Historial de Reportes
             </TableTitle>
             <TableDescription>
-              Registro detallado de todas las operaciones y reportes automáticos del biodigestor
+              Registro real de todos los reportes generados
             </TableDescription>
-
             <TableContainer>
               <Table>
                 <thead>
                   <tr>
+                    <TableHeader>ID</TableHeader>
                     <TableHeader>Fecha</TableHeader>
-                    <TableHeader>Operador</TableHeader>
-                    <TableHeader>Cantidad</TableHeader>
-                    <TableHeader>Estado</TableHeader>
+                    <TableHeader>Usuario</TableHeader>
+                    <TableHeader>Tipo</TableHeader>
                     <TableHeader>Observaciones</TableHeader>
+                    <TableHeader>PDF</TableHeader>
+                    <TableHeader>Excel</TableHeader>
+                    <TableHeader>CSV</TableHeader>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell>{report.fecha}</TableCell>
-                      <TableCell>{report.operador}</TableCell>
-                      <TableCell>{report.cantidad}</TableCell>
+                  {history.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>{r.id}</TableCell>
+                      <TableCell>{r.created_at?.slice(0, 19).replace('T', ' ')}</TableCell>
+                      <TableCell>{r.user_name || 'Anónimo'}</TableCell>
+                      <TableCell>{r.report_type}</TableCell>
+                      <TableCell>{r.observations || '-'}</TableCell>
                       <TableCell>
-                        <StatusTag $estado={report.estado}>
-                          {report.estado}
-                        </StatusTag>
+                        {r.file_pdf ? (
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <ExportButton as="a" href={`/api/dashboard/report/download/${r.id}/pdf/`} target="_blank" rel="noopener noreferrer">
+                              <Icon className="fas fa-download" /> PDF
+                            </ExportButton>
+                            {/* Vista previa eliminada */}
+                          </div>
+                        ) : '-'}
                       </TableCell>
-                      <TableCell>{report.observaciones}</TableCell>
+                      <TableCell>
+                        {r.file_excel ? (
+                          <ExportButton as="a" href={`/api/dashboard/report/download/${r.id}/excel/`} target="_blank" rel="noopener noreferrer">
+                            <Icon className="fas fa-download" /> Excel
+                          </ExportButton>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {r.file_csv ? (
+                          <ExportButton as="a" href={`/api/dashboard/report/download/${r.id}/csv/`} target="_blank" rel="noopener noreferrer">
+                            <Icon className="fas fa-download" /> CSV
+                          </ExportButton>
+                        ) : '-'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </tbody>

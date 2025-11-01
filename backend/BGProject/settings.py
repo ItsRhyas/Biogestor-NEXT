@@ -12,26 +12,19 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import os
-import environ
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env(
-    DEBUG=(bool, True)
-)
-
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('DJANGO_SECRET_KEY')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG', True)
+DEBUG = os.getenv('DEBUG', True)
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
@@ -43,12 +36,14 @@ ALLOWED_HOSTS = [
 
 INSTALLED_APPS = [
     "corsheaders",
-    'storages',
-    'usuarios',
+
+    'usuarios.apps.LoginConfig',
     'inventario',
     'recursos',
+    'dashboard',
     'biocalculadora',
     'rest_framework',
+    'channels',
     'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -96,6 +91,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "http://localhost:8080",
 ]
 
 
@@ -118,6 +114,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'BGProject.wsgi.application'
+ASGI_APPLICATION = 'BGProject.asgi.application'
 
 
 # Database
@@ -126,10 +123,10 @@ WSGI_APPLICATION = 'BGProject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'biogestor',
-        'USER': 'postgres',
-        'PASSWORD': 'mi_password',
-        'HOST': 'localhost',
+        'NAME': os.getenv("POSTGRES_DB"),
+        'USER': os.getenv("POSTGRES_USER"),
+        'PASSWORD': os.getenv("POSTGRES_PASSWORD"),
+        'HOST': 'db',
         'PORT': '5432',
     }
 }
@@ -174,33 +171,30 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# MEDIA_URL = "/media/"
-# MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 STATIC_URL = "/static/"
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-env = environ.Env()
-environ.Env.read_env()
-
 # storages
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-        "OPTIONS": {
-            "location": STATIC_ROOT,
-        }
-    },
-    "default": {
-        "BACKEND": "storages.backends.s3.S3Storage",
-        "OPTIONS": {
-            "bucket_name": env('AWS_STORAGE_BUCKET_NAME'),
+# STORAGES = {
+#     "staticfiles": {
+#         "BACKEND": "django.core.files.storage.FileSystemStorage",
+#         "OPTIONS": {
+#             "location": STATIC_ROOT,
+#         }
+#     },
+#     "default": {
+#         "BACKEND": "storages.backends.s3.S3Storage",
+#         "OPTIONS": {
+#             "bucket_name": os.getenv('AWS_STORAGE_BUCKET_NAME'),
 
-            "region_name": env('AWS_S3_REGION_NAME'),
-            "access_key": env('AWS_ACCESS_KEY_ID'),
-            "secret_key": env('AWS_SECRET_ACCESS_KEY'),
+#             "region_name": os.getenv('AWS_S3_REGION_NAME'),
+#             "access_key": os.getenv('AWS_ACCESS_KEY_ID'),
+#             "secret_key": os.getenv('AWS_SECRET_ACCESS_KEY'),
 
-        },
-    },
-}
+#         },
+#     },
+# }

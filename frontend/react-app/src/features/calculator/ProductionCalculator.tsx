@@ -1,95 +1,87 @@
 import React, { useState } from 'react';
+import { calcularProduccion } from '../../api/calculadora.api';
 import { Card } from '../../shared/card/card';
 import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 
 interface CalculatorForm {
-  materialType: string;
-  quantity: number;
-  organicContent: number;
-  humidityLevel: number;
+  material_type: 'bovino' | 'porcino' | 'vegetal';
+  vs_per_day: number;
+  reactor_volume: number | null;
   temperature: number;
-  retentionTime: number;
+  HRT?: number;
+  target_fraction?: number;
 }
 
-interface CalculationResult {
-  biogasProduction: number;
-  energyEquivalent: number;
-  fertilizerProduction: number;
-  efficiency: string;
+interface SeriesResult {
+  days: number[];
+  daily_biogas_m3: number[];
+  cumulative_biogas_m3: number[];
+  A_biogas_m3: number;
 }
+
+// Chart.js
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 export const ProductionCalculator: React.FC = () => {
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [formData, setFormData] = useState<CalculatorForm>({
-    materialType: '',
-    quantity: 2500,
-    organicContent: 85,
-    humidityLevel: 75,
-    temperature: 37,
-    retentionTime: 25
+    material_type: 'bovino',
+    vs_per_day: 2500,
+    reactor_volume: null,
+    temperature: 35,
+    HRT: undefined,
+    target_fraction: 0.95,
   });
-  const [results, setResults] = useState<CalculationResult | null>(null);
+  const [series, setSeries] = useState<SeriesResult | null>(null);
   const [showResults, setShowResults] = useState(false);
+  const [showFormulas, setShowFormulas] = useState(false);
 
-  const materialTypes = [
-    { value: 'estiercol_vacuno', label: 'Estiércol Vacuno' },
-    { value: 'estiercol_porcino', label: 'Estiércol Porcino' },
-    { value: 'residuos_agricolas', label: 'Residuos Agrícolas' },
-    { value: 'residuos_comida', label: 'Residuos de Comida' }
-  ];
-
-  const handleInputChange = (field: keyof CalculatorForm, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleInputChange = (field: keyof CalculatorForm, value: string | number | null) => {
+    setFormData((prev: CalculatorForm) => ({ ...prev, [field]: value as any }));
   };
 
-  const calculateProduction = () => {
-    // Cálculos basados en parámetros del biodigestor
-    const biogasFactor = {
-      'estiercol_vacuno': 0.035,
-      'estiercol_porcino': 0.045,
-      'residuos_agricolas': 0.030,
-      'residuos_comida': 0.050
-    }[formData.materialType] || 0.035;
-
-    const biogasProduction = formData.quantity * biogasFactor * (formData.organicContent / 100);
-    const energyEquivalent = biogasProduction * 6; // 6 kWh por m³ de biogás
-    const fertilizerProduction = formData.quantity * 0.6; // 60% del material se convierte en fertilizante
-    
-    const efficiency = formData.temperature >= 35 && formData.temperature <= 40 ? 'Alta' :
-                      formData.temperature >= 30 && formData.temperature < 35 ? 'Media' : 'Baja';
-
-    setResults({
-      biogasProduction: Math.round(biogasProduction * 100) / 100,
-      energyEquivalent: Math.round(energyEquivalent * 100) / 100,
-      fertilizerProduction: Math.round(fertilizerProduction * 100) / 100,
-      efficiency
-    });
-    setShowResults(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.materialType) {
-      alert('Por favor selecciona el tipo de material');
-      return;
+  const calculateProduction = async () => {
+    try {
+      const result = await calcularProduccion(formData);
+      setSeries({
+        days: result.days,
+        daily_biogas_m3: result.daily_biogas_m3,
+        cumulative_biogas_m3: result.cumulative_biogas_m3,
+        A_biogas_m3: result.A_biogas_m3,
+      });
+      setShowResults(true);
+    } catch (error) {
+      alert('Error al calcular producción.');
     }
-    calculateProduction();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await calculateProduction();
   };
 
   const handleClear = () => {
     setFormData({
-      materialType: '',
-      quantity: 2500,
-      organicContent: 85,
-      humidityLevel: 75,
-      temperature: 37,
-      retentionTime: 25
+      material_type: 'bovino',
+      vs_per_day: 2500,
+      reactor_volume: null,
+      temperature: 35,
+      HRT: undefined,
+      target_fraction: 0.95,
     });
-    setResults(null);
+    setSeries(null);
     setShowResults(false);
   };
 
@@ -105,11 +97,29 @@ export const ProductionCalculator: React.FC = () => {
         
         <div style={{ padding: 20 }}>
           <h2 style={{ fontSize: '1.5rem', color: '#333', marginBottom: '0.5rem' }}>
-            Calculadora de Producción
+            Calculadora de Producción (Biodigestor de bolsa)
           </h2>
-          <p style={{ marginBottom: '2rem', color: '#555' }}>
-            Estima la producción de biogás basada en los datos de llenado.
-          </p>
+          <div style={{ marginBottom: '2rem', color: '#555', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ margin: 0 }}>
+              Estimación basada en Gompertz modificado, ajustado por temperatura y tipo de materia.
+            </p>
+            <button onClick={() => setShowFormulas(v => !v)} style={{ background: 'transparent', border: '1px solid #ccc', borderRadius: 6, padding: '0.4rem 0.75rem', cursor: 'pointer' }}>
+              {showFormulas ? 'Ocultar fórmulas' : 'Ver fórmulas'}
+            </button>
+          </div>
+          {showFormulas && (
+            <div style={{ background: '#f9fafb', border: '1px solid #ececec', borderRadius: 6, padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.92rem', color: '#333' }}>
+              <strong>Resumen del modelo:</strong>
+              <ul style={{ marginTop: '0.5rem' }}>
+                <li>Gompertz modificado para biogás acumulado: B(t) = A * exp(-exp((μe/A)(λ - t) + 1))</li>
+                <li>Producción diaria: dB/dt derivada de Gompertz</li>
+                <li>Ajuste por temperatura (Q10): μ(T) = μref * Q10^((T-35)/10)</li>
+                <li>Sustrato (Monod): μeff = μ(T) * S/(Ks + S)</li>
+                <li>Parámetros por material: rendimiento Y, fCH4, μref, λ</li>
+              </ul>
+              <small>Referencias: Angelidaki et al., Batstone et al., Monod (1949).</small>
+            </div>
+          )}
 
           <div style={{
             display: 'grid',
@@ -134,93 +144,75 @@ export const ProductionCalculator: React.FC = () => {
                 <div>
                   <h4 style={{ margin: 0, color: '#333' }}>Datos de Entrada</h4>
                   <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
-                    Ingresa los parámetros del material para calcular la producción estimada.
+                    Ingresa los parámetros del material para calcular la producción esperada.
                   </p>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit}>
                 <div style={{ marginBottom: '1rem' }}>
-                  <label style={{
-                    display: 'block',
-                    fontWeight: 500,
-                    marginBottom: '0.5rem',
-                    color: '#555',
-                    fontSize: '0.9rem'
-                  }}>
-                    Tipo de Material
+                  <label style={{ display: 'block', fontWeight: 500, marginBottom: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                    Tipo de materia orgánica
                   </label>
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      value={formData.materialType}
-                      onChange={(e) => handleInputChange('materialType', e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '0.8rem',
-                        border: '1px solid #e0e0e0',
-                        borderRadius: '5px',
-                        fontSize: '1rem',
-                        backgroundColor: '#fdfdfd',
-                        appearance: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="" disabled>Selecciona el tipo de material</option>
-                      {materialTypes.map(type => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                    <i className="fas fa-chevron-down" style={{
-                      position: 'absolute',
-                      right: '1rem',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#555',
-                      pointerEvents: 'none'
-                    }}></i>
-                  </div>
+                  <select
+                    value={formData.material_type}
+                    onChange={e => setFormData((prev: CalculatorForm) => ({ ...prev, material_type: e.target.value as any }))}
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid #e0e0e0', borderRadius: '5px', fontSize: '1rem', backgroundColor: '#fdfdfd' }}
+                  >
+                    <option value="bovino">Desechos bovinos</option>
+                    <option value="porcino">Desechos porcinos</option>
+                    <option value="vegetal">Residuos vegetales</option>
+                  </select>
                 </div>
-
-                {['quantity', 'organicContent', 'humidityLevel', 'temperature', 'retentionTime'].map((field, index) => {
-                  const labels = {
-                    quantity: 'Cantidad (kg)',
-                    organicContent: 'Contenido Orgánico (%)',
-                    humidityLevel: 'Nivel de Humedad (%)',
-                    temperature: 'Temperatura (°C)',
-                    retentionTime: 'Tiempo de Retención (días)'
-                  };
-
-                  return (
-                    <div key={field} style={{ marginBottom: '1rem' }}>
-                      <label style={{
-                        display: 'block',
-                        fontWeight: 500,
-                        marginBottom: '0.5rem',
-                        color: '#555',
-                        fontSize: '0.9rem'
-                      }}>
-                        {labels[field as keyof typeof labels]}
-                      </label>
-                      <input
-                        type="number"
-                        value={formData[field as keyof CalculatorForm]}
-                        onChange={(e) => handleInputChange(field as keyof CalculatorForm, parseFloat(e.target.value) || 0)}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '0.8rem',
-                          border: '1px solid #e0e0e0',
-                          borderRadius: '5px',
-                          fontSize: '1rem',
-                          backgroundColor: '#fdfdfd'
-                        }}
-                      />
-                    </div>
-                  );
-                })}
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontWeight: 500, marginBottom: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                    Materia orgánica (kg VS / día)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.vs_per_day}
+                    onChange={e => handleInputChange('vs_per_day', parseFloat(e.target.value) || 0)}
+                    required
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid #e0e0e0', borderRadius: '5px', fontSize: '1rem', backgroundColor: '#fdfdfd' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontWeight: 500, marginBottom: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                    Volumen del biodigestor (m³) (opcional)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.reactor_volume ?? ''}
+                    onChange={e => handleInputChange('reactor_volume', e.target.value ? parseFloat(e.target.value) : null)}
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid #e0e0e0', borderRadius: '5px', fontSize: '1rem', backgroundColor: '#fdfdfd' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontWeight: 500, marginBottom: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                    Temperatura (°C)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.temperature}
+                    onChange={e => handleInputChange('temperature', parseFloat(e.target.value) || 0)}
+                    required
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid #e0e0e0', borderRadius: '5px', fontSize: '1rem', backgroundColor: '#fdfdfd' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontWeight: 500, marginBottom: '0.5rem', color: '#555', fontSize: '0.9rem' }}>
+                    Fracción objetivo del potencial (0 - 1)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={formData.target_fraction ?? 0.95}
+                    onChange={e => handleInputChange('target_fraction', parseFloat(e.target.value) || 0.95)}
+                    style={{ width: '100%', padding: '0.8rem', border: '1px solid #e0e0e0', borderRadius: '5px', fontSize: '1rem', backgroundColor: '#fdfdfd' }}
+                  />
+                </div>
 
                 <div style={{
                   display: 'flex',
@@ -288,7 +280,7 @@ export const ProductionCalculator: React.FC = () => {
                 <div>
                   <h4 style={{ margin: 0, color: '#333' }}>Resultados de Producción</h4>
                   <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
-                    Estimación de la producción de biogás y energía equivalente.
+                    Serie esperada de producción diaria y acumulada.
                   </p>
                 </div>
               </div>
@@ -313,7 +305,7 @@ export const ProductionCalculator: React.FC = () => {
                 </div>
               ) : (
                 <div>
-                  {results && (
+                  {series && (
                     <div>
                       <div style={{
                         backgroundColor: '#e8f5e8',
@@ -321,56 +313,43 @@ export const ProductionCalculator: React.FC = () => {
                         borderRadius: '5px',
                         marginBottom: '1.5rem'
                       }}>
-                        <h5 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>
-                          Eficiencia: {results.efficiency}
-                        </h5>
-                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
-                          Basado en los parámetros ingresados
-                        </p>
+                        <h5 style={{ margin: 0, color: '#2e7d32' }}>Serie esperada (Gompertz modificado)</h5>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>A = {series.A_biogas_m3.toFixed(2)} m³</p>
                       </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '1rem',
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '5px'
-                        }}>
-                          <span style={{ fontWeight: 500 }}>Producción de Biogás:</span>
-                          <strong style={{ color: '#28a745' }}>
-                            {results.biogasProduction} m³/día
-                          </strong>
-                        </div>
-
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '1rem',
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '5px'
-                        }}>
-                          <span style={{ fontWeight: 500 }}>Energía Equivalente:</span>
-                          <strong style={{ color: '#ffa726' }}>
-                            {results.energyEquivalent} kWh
-                          </strong>
-                        </div>
-
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '1rem',
-                          backgroundColor: '#f8f9fa',
-                          borderRadius: '5px'
-                        }}>
-                          <span style={{ fontWeight: 500 }}>Fertilizante:</span>
-                          <strong style={{ color: '#7e57c2' }}>
-                            {results.fertilizerProduction} L
-                          </strong>
-                        </div>
+                      <div style={{ height: 320 }}>
+                        <Line
+                          data={{
+                            labels: series.days.map((d: number) => `Día ${d}`),
+                            datasets: [
+                              {
+                                label: 'Diario (m³/día)',
+                                data: series.daily_biogas_m3,
+                                borderColor: '#26a69a',
+                                backgroundColor: '#26a69a20',
+                                tension: 0.3,
+                                yAxisID: 'y1',
+                              },
+                              {
+                                label: 'Acumulado (m³)',
+                                data: series.cumulative_biogas_m3,
+                                borderColor: '#42a5f5',
+                                backgroundColor: '#42a5f520',
+                                tension: 0.3,
+                                yAxisID: 'y2',
+                              },
+                            ],
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            scales: {
+                              y1: { type: 'linear', position: 'left', title: { display: true, text: 'm³/día' } },
+                              y2: { type: 'linear', position: 'right', title: { display: true, text: 'm³' }, grid: { drawOnChartArea: false } },
+                            },
+                            plugins: { legend: { display: true }, title: { display: false } },
+                          }}
+                        />
                       </div>
                     </div>
                   )}

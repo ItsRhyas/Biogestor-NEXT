@@ -1,16 +1,10 @@
 import apiClient from './authService';
 import { User, ApiResponse, Permission } from '../types';
 
-const getInstitucionActual = (): string => {
-  return localStorage.getItem('institucionActual') || '';
-};
-
 export const userService = {
   async getApprovedUsers(): Promise<{ usuarios: User[]; total: number }> {
     try {
-      const institucion = getInstitucionActual();
-      // Ensure URL matches backend pattern exactly
-      const response = await apiClient.get(`/api/${institucion}/usuarios/`);
+      const response = await apiClient.get('/api/usuarios/');
       return response.data;
     } catch (error: any) {
       throw new Error(
@@ -22,9 +16,7 @@ export const userService = {
 
   async getPendingUsers(): Promise<{ usuarios: User[]; total_pendientes: number }> {
     try {
-      const institucion = getInstitucionActual();
-      // Ensure URL matches backend pattern exactly
-      const response = await apiClient.get(`/api/${institucion}/usuarios/pendientes/`);
+      const response = await apiClient.get('/api/usuarios/pendientes/');
       return response.data;
     } catch (error: any) {
       throw new Error(
@@ -63,8 +55,7 @@ export const userService = {
 
   async getUserPermissions(userId: number): Promise<{ usuario_id: number; username: string; permisos: Permission[] }> {
     try {
-      const institucion = getInstitucionActual();
-      const response = await apiClient.get(`api/${institucion}/usuarios/${userId}/ver-permisos/`);
+      const response = await apiClient.get(`/api/usuarios/${userId}/ver-permisos/`);
       
       // CONVERTIR respuesta del backend a formato frontend
       const backendData = response.data;
@@ -121,5 +112,6 @@ export const userService = {
       );
     }
   }
-};
+}; // ✅ ESTA ES LA LLAVE DE CIERRE QUE FALTABA
+
 export default userService;

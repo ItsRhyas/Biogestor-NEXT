@@ -7,30 +7,12 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { Sensors } from './features/sensors/Sensors';
 import { Reports } from './features/reports/Reports';
 import { ProductionCalculator } from './features/calculator/ProductionCalculator';
-import { VirtualAssistant } from './features/assistant/VirtualAssistant';
-import { TechnicalDocumentation } from './features/documentation/TechnicalDocumentation';
-import { Resources } from './features/resources/Resources';
 import './services/interceptor';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import AlertDialog from './shared/popup/popup';
-import { useParams } from 'react-router-dom';
-
-// Componente para envolver rutas con institución
-const InstitucionRoute = ({ children }: { children: React.ReactNode }) => {
-  const { institucion } = useParams<{ institucion: string }>();
-  
-  // Guardar la institución en el contexto o localStorage para usarla en las APIs
-  useEffect(() => {
-    if (institucion) {
-      localStorage.setItem('institucionActual', institucion);
-    }
-  }, [institucion]);
-
-  return <>{children}</>;
-};
 
 function App() {
-  const [currentView, setCurrentView] = useState('Sensores');
+  // const [currentView, setCurrentView] = useState('Sensores');
 
   useEffect(() => {
     // Solo en desarrollo
@@ -61,106 +43,56 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Rutas públicas sin institución */}
         <Route path="/login" element={<Login />} />
         <Route path="/registro" element={<Register />} />
         
-        {/* Rutas con institución */}
-        <Route path="/:institucion">
-          {/* Rutas protegidas con layout principal */}
-          <Route 
-            path="perfil" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <Dashboard />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="sensores" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <Sensors />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="reportes" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <Reports />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="calculadora" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <ProductionCalculator />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="asistente" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <VirtualAssistant />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="documentacion" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <TechnicalDocumentation />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route 
-            path="permisos" 
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <PermisosVista />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            } 
-          />
-          
-          <Route
-            path="recursos"
-            element={
-              <ProtectedRoute>
-                <InstitucionRoute>
-                  <Resources />
-                </InstitucionRoute>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route path="" element={<Navigate to="sensores" />} />
-        </Route>
-
-        {/* Redirección por defecto */}
-        <Route path="/" element={<Navigate to="/login" />} />
+        {/* Rutas protegidas con layout principal */}
+        <Route 
+          path="/perfil" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/sensores" 
+          element={
+            <ProtectedRoute>
+              <Sensors />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/reportes" 
+          element={
+            <ProtectedRoute>
+              <Reports />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/calculadora" 
+          element={
+            <ProtectedRoute>
+              <ProductionCalculator />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/permisos" 
+          element={
+            <ProtectedRoute>
+              <PermisosVista />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route path="/" element={<Navigate to="/sensores" />} />
         <Route path="/popup" element={<AlertDialog/>}/>
       </Routes>
     </Router>

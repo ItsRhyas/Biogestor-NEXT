@@ -1,114 +1,51 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.db import models
+from django.shortcuts import render, redirect, HttpResponse
 from .models import Recursos
-from .serializers import RecursosSerializer, RecursosCreateSerializer
-from .serializers import (
-    PuedeSubirRecursos, PuedeDescargarRecursos, 
-    PuedeVerRecursos, EsPropietarioOInstitucion
-)
-from usuarios.models import Perfil, Instituciones
+from django.conf import settings
 
-class RecursosViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para gestionar recursos con control de permisos por institución
-    """
-    queryset = Recursos.objects.all()
-    permission_classes = [IsAuthenticated, PuedeVerRecursos]
+def subir_archivo(request):
     
-    def get_queryset(self):
-        if not hasattr(self.request.user, 'perfil'):
-            return Recursos.objects.none()
-            
-        user_institution = self.request.user.perfil.institucion
+    if request.method == 'POST':
         
-        # Recursos públicos + recursos privados de la misma institución
-        return Recursos.objects.filter(
-            models.Q(tipo_acceso='publico') | 
-            models.Q(institucion=user_institution, tipo_acceso='privado')
-        ).order_by('-fecha_subida')
-    
-    def get_serializer_class(self):
-        if self.action in ['create', 'update']:
-            return RecursosCreateSerializer
-        return RecursosSerializer
-    
-    def get_permissions(self):
-        """
-        Asignar permisos específicos según la acción
-        """
-        if self.action == 'create':
-            self.permission_classes = [IsAuthenticated, PuedeSubirRecursos]
-        elif self.action == 'descargar':
-            self.permission_classes = [IsAuthenticated, PuedeDescargarRecursos]
-        elif self.action in ['update', 'partial_update', 'destroy']:
-            self.permission_classes = [IsAuthenticated, EsPropietarioOInstitucion]
+        Nombre = request.POST.get("nombre")
+        file = request.FILES.get("archivo")
         
-        return super().get_permissions()
-    
-    def perform_create(self, serializer):
-        """
-        Asignar automáticamente la institución y usuario al crear
-        """
-        if not hasattr(self.request.user, 'perfil'):
-            from rest_framework import serializers
-            raise serializers.ValidationError("El usuario no tiene perfil asignado")
+        if Nombre and file:
         
-        perfil_usuario = self.request.user.perfil
-        serializer.save(
-            institucion=perfil_usuario.institucion,
-            usuario_subio=self.request.user
-        )
+            upload = Recursos(nombre=Nombre, file=file)
+            upload.save()
+            image_url = upload.file.url
+            print(image_url)
+            return redirect("lista_archivos")
+        
+        else:
+
+            return HttpResponse("Faltan datos en el formulario", status=400)
     
-    @action(detail=True, methods=['get'], url_path='descargar')
-    def descargar(self, request, pk=None, institucion=None):
-        """
-        Endpoint para obtener URL de descarga con validación de permisos
-        """
-        try:
-            recurso = self.get_object()
-            
-            # Verificación adicional de permisos (por si acaso)
-            if recurso.tipo_acceso == 'privado':
-                if not hasattr(request.user, 'perfil'):
-                    return Response(
-                        {'error': 'Usuario sin perfil asignado'}, 
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-                
-                if recurso.institucion != request.user.perfil.institucion:
-                    return Response(
-                        {'error': 'No tienes permisos para acceder a este recurso'}, 
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-            
-            file_obj = recurso.file
-            file_url = request.build_absolute_uri(file_obj.url)
-            
-            return Response({
-                'download_url': file_url,
-                'nombre': recurso.nombre,
-                'tipo_acceso': recurso.tipo_acceso,
-                'tamaño': file_obj.size,
-                'tipo_archivo': recurso.get_tipo_archivo_display() if hasattr(recurso, 'get_tipo_archivo_display') else 'Desconocido'
-            })
-            
-        except Recursos.DoesNotExist:
-            return Response(
-                {'error': 'Recurso no encontrado'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
     
-    @action(detail=False, methods=['get'], url_path='mis-recursos')
-    def mis_recursos(self, request, institucion=None):
-        """
-        Endpoint para listar solo los recursos subidos por el usuario actual
-        """
-        if not hasattr(request.user, 'perfil'):
-            return Response([], status=status.HTTP_200_OK)
-            
-        user_resources = self.get_queryset().filter(usuario_subio=request.user)
-        serializer = self.get_serializer(user_resources, many=True)
-        return Response(serializer.data)
+    return render(request, "subir.html")
+    
+
+def descargar_archivo(request, recurso_id):
+    try:
+        recurso = Recursos.objects.get(id=recurso_id)
+        file_obj = recurso.file  # esto es un FieldFile de Django
+        file_url = file_obj.url  # URL pública o firmada según tu configuración
+
+        # Opción 1: Redirigir al URL de S3 (más simple)
+        from django.shortcuts import redirect
+        return redirect(file_url)
+
+        # Opción 2: Descargar y servir desde Django (menos eficiente)
+        # contenido = file_obj.read()
+        # response = HttpResponse(contenido, content_type='application/octet-stream')
+        # response['Content-Disposition'] = f'attachment; filename="{file_obj.name}"'
+        # return response
+
+    except Recursos.DoesNotExist:
+        return HttpResponse("Recurso no encontrado", status=404)
+
+
+
+def lista_archivos(request):
+    archivos = Recursos.objects.all()
+    return render(request, "lista_archivos.html", {"archivos": archivos})

@@ -1,15 +1,13 @@
 import styled from 'styled-components'
 import { Boton } from "../Boton/boton"
 import logo from '../../assets/logo.png'
-import { useNavigate, useLocation, useParams } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 import { LuActivity } from "react-icons/lu";
 import { LuFileText } from "react-icons/lu";
 import { LuUser } from "react-icons/lu";
-import { LuBookOpen } from "react-icons/lu";
-import { LuBot } from "react-icons/lu";
 import { LuCalculator } from "react-icons/lu";
-import { LuFolder } from "react-icons/lu";
+
 
 // #dee2e6
 
@@ -22,6 +20,7 @@ interface BarraLateralProps {
 
 const SidebarStyled = styled.div<{ $abierta?: boolean  }>`
   width: ${({ $abierta }) => ($abierta ? '280px' : '0')};
+  flex: 0 0 auto; /* evita que el contenedor flex colapse el ancho */
   height: 100vh;
   background-color: #fafafa;
   overflow: hidden; /* oculta contenido cuando está cerrada */
@@ -77,14 +76,6 @@ const Menu = styled.div`
 export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { institucion } = useParams<{ institucion: string }>();
-
-  // Función para generar paths con institución
-  const generarPath = (path: string) => {
-    return `/${institucion}${path}`;
-  };
-
-  console.log('BarraLateral abierta=', abierta);
 
   const itemsMenu = [
     { 
@@ -92,8 +83,8 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       content: "Información del usuario",
       icon: <LuUser/>,
       color: "#fafafa",
-      path: generarPath("/perfil"),
-      isActive: location.pathname === generarPath("/perfil")
+      path: "/perfil",
+      isActive: location.pathname === '/perfil'
     },
 
     { 
@@ -101,8 +92,8 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       content: "Asignación de permisos",
       icon: <LuUser/>,
       color: "#fafafa",
-      path: generarPath("/permisos"),
-      isActive: location.pathname === generarPath("/permisos")
+      path: "/permisos",
+      isActive: location.pathname === '/permisos'
     },
 
     { 
@@ -110,48 +101,24 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       content: "Monitoreo en tiempo real",
       icon: <LuActivity/>,
       color: "#fafafa", 
-      path: generarPath("/sensores"),
-      isActive: location.pathname === generarPath("/sensores")
+      path: "/sensores",
+      isActive: location.pathname === '/sensores'
     },
     { 
       label: "Reportes", 
       content: "Historial y análisis",
       icon: <LuFileText/>,
       color: "#fafafa",
-      path: generarPath("/reportes"),
-      isActive: location.pathname === generarPath("/reportes")
+      path: "/reportes",
+      isActive: location.pathname === '/reportes'
     },
     { 
       label: "Calculadora de productos", 
       content: "Estimación de producción",
       icon: <LuCalculator/>,
       color: "#fafafa",
-      path: generarPath("/calculadora"),
-      isActive: location.pathname === generarPath("/calculadora")
-    },
-    { 
-      label: "Asistente Virtual", 
-      content: "Ayuda especializada",
-      icon: <LuBot/>,
-      color: "#fafafa",
-      path: generarPath("/asistente"),
-      isActive: location.pathname === generarPath("/asistente")
-    },
-    { 
-      label: "Documentación Técnica", 
-      content: "Manuales y guías",
-      icon: <LuBookOpen/>,
-      color: "#fafafa",
-      path: generarPath("/documentacion"),
-      isActive: location.pathname === generarPath("/documentacion")
-    },
-    {
-      label: "Recursos",
-      content: "Gestión de archivos y documentos",
-      icon: <LuFolder/>,
-      color: "#fafafa",
-      path: generarPath("/recursos"),
-      isActive: location.pathname === generarPath("/recursos")
+      path: "/calculadora",
+      isActive: location.pathname === '/calculadora'
     }
   ]
 

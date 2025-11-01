@@ -1,0 +1,11 @@
+Django
+psycopg2-binary
+pandas
+djangorestframework
+django-extensions
+django-cors-headers
+djangorestframework-simplejwt
+channels
+daphne
+paho-mqtt
+openpyxl
