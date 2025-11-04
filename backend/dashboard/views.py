@@ -5,11 +5,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from usuarios.permisos import PuedeVerCalibraciones
+from usuarios.permisos import PuedeVerDashboard
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.decorators import api_view
 from django.core.files.base import ContentFile
-from .models import FillingStage, SensorReading, Report, ActuatorCommand, Alert, CalibrationRecord
-from .serializers import FillingStageSerializer, ReportSerializer, ActuatorCommandSerializer, AlertSerializer, CalibrationRecordSerializer
+from .models import FillingStage, SensorReading, Report, ActuatorCommand, Alert, CalibrationRecord, PracticeSession
+from .serializers import FillingStageSerializer, ReportSerializer, ActuatorCommandSerializer, AlertSerializer, CalibrationRecordSerializer, PracticeSessionSerializer
 from biocalculadora.calculators import estimate_timeseries_for_material
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -216,7 +218,7 @@ class StatsAPIView(APIView):
     - reportes_generados: total de reportes en el sistema
     - lecturas_hoy: total de lecturas de sensores registradas hoy (informativo)
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeVerDashboard]
 
     def get(self, request):
         today = timezone.now().date()
@@ -233,7 +235,7 @@ class PredictEfficiencyAPIView(APIView):
     """Predicción simple de eficiencia basada en series esperada vs. real.
     Retorna A (potencial), eficiencia acumulada (real/estimado) y series recortadas.
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, PuedeVerDashboard]
 
     def get(self, request):
         stage = FillingStage.objects.filter(active=True).order_by('-created_at').first()
@@ -259,7 +261,7 @@ class PredictEfficiencyAPIView(APIView):
         })
 
 class CurrentProductionAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, PuedeVerDashboard]
 
     def get(self, request):
         stage = FillingStage.objects.filter(active=True).order_by('-created_at').first()
@@ -350,7 +352,7 @@ class CurrentProductionAPIView(APIView):
             }
         })
 class CurrentReportAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, PuedeVerDashboard]
     parser_classes = [FormParser, MultiPartParser]
 
     def get(self, request, format=None):
@@ -1068,7 +1070,7 @@ class ResolveAlertAPIView(APIView):
 
 
 class CalibrationAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeVerCalibraciones]
 
     def get(self, request):
         items = CalibrationRecord.objects.all().order_by('-date', '-created_at')[:500]
@@ -1083,7 +1085,7 @@ class CalibrationAPIView(APIView):
 
 
 class CalibrationExportAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, PuedeVerCalibraciones]
 
     def get(self, request):
         items = CalibrationRecord.objects.all().order_by('-date')
@@ -1101,3 +1103,105 @@ class CalibrationExportAPIView(APIView):
         return HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={
             'Content-Disposition': 'attachment; filename="calibraciones.xlsx"'
         })
+
+
+class PracticeStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        active = PracticeSession.objects.filter(ended_at__isnull=True).order_by('-started_at').first()
+        last = PracticeSession.objects.order_by('-started_at').first()
+        return Response({
+            'active': PracticeSessionSerializer(active).data if active else None,
+            'last': PracticeSessionSerializer(last).data if last else None,
+        })
+
+
+class PracticeStartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        active = PracticeSession.objects.filter(ended_at__isnull=True).exists()
+        if active:
+            return Response({"detail": "Ya existe una práctica activa"}, status=400)
+        sess = PracticeSession.objects.create(started_by=request.user if request.user.is_authenticated else None)
+        return Response(PracticeSessionSerializer(sess).data, status=201)
+
+
+class PracticeStopAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        sess = PracticeSession.objects.filter(ended_at__isnull=True).order_by('-started_at').first()
+        if not sess:
+            return Response({"detail": "No hay práctica activa"}, status=404)
+        sess.ended_by = request.user if request.user.is_authenticated else None
+        sess.ended_at = timezone.now()
+        sess.save()
+
+        # Construir reporte (excel/csv) para el intervalo de práctica
+        start_dt = sess.started_at
+        end_dt = sess.ended_at
+        readings = SensorReading.objects.filter(timestamp__gte=start_dt, timestamp__lte=end_dt).order_by('timestamp')
+        daily_map = {}
+        last_total_gas = None
+        last_ts = None
+        for r in readings:
+            ts = r.timestamp
+            payload = r.raw_payload or {}
+            delta = 0.0
+            try:
+                if isinstance(payload, dict) and 'gas_total_m3' in payload:
+                    total = float(payload.get('gas_total_m3') or 0.0)
+                    if last_total_gas is not None:
+                        delta = max(0.0, total - last_total_gas)
+                    last_total_gas = total
+                elif isinstance(payload, dict) and ('caudal_gas' in payload or 'caudal_gas_lmin' in payload or 'gas_flow_lmin' in payload):
+                    if 'caudal_gas' in payload:
+                        rate = float(payload.get('caudal_gas') or 0.0)
+                    else:
+                        lmin = float(payload.get('caudal_gas_lmin') or payload.get('gas_flow_lmin') or 0.0)
+                        rate = lmin * 0.06
+                    if last_ts is not None:
+                        dt_hours = max(0.0, (ts - last_ts).total_seconds() / 3600.0)
+                        delta = max(0.0, rate * dt_hours)
+                elif r.gas_flow is not None:
+                    delta = max(0.0, float(r.gas_flow))
+            except Exception:
+                pass
+            last_ts = ts
+            if delta > 0:
+                day_key = ts.date().isoformat()
+                daily_map[day_key] = daily_map.get(day_key, 0.0) + delta
+
+        df = pd.DataFrame({
+            'Fecha': list(daily_map.keys()),
+            'Producción Real (m3/día)': list(daily_map.values()),
+        })
+
+        fmt = request.query_params.get('format', 'excel')
+        if fmt == 'csv':
+            csv_buffer = io.StringIO()
+            df.to_csv(csv_buffer, index=False)
+            return HttpResponse(csv_buffer.getvalue(), content_type='text/csv', headers={
+                'Content-Disposition': f'attachment; filename="reporte_practica_{sess.id}.csv"'
+            })
+        else:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output) as writer:
+                # Portada
+                cover = pd.DataFrame({
+                    'Campo': ['Tipo', 'Inicio', 'Fin', 'Duración (min)'],
+                    'Valor': [
+                        'Reporte de práctica',
+                        start_dt.astimezone(timezone.get_current_timezone()).strftime('%Y-%m-%d %H:%M'),
+                        end_dt.astimezone(timezone.get_current_timezone()).strftime('%Y-%m-%d %H:%M'),
+                        round((end_dt - start_dt).total_seconds() / 60.0, 1),
+                    ]
+                })
+                cover.to_excel(writer, index=False, sheet_name='Resumen')
+                df.to_excel(writer, index=False, sheet_name='Datos')
+            output.seek(0)
+            return HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={
+                'Content-Disposition': f'attachment; filename="reporte_practica_{sess.id}.xlsx"'
+            })

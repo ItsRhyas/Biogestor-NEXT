@@ -4,6 +4,7 @@ import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 import { Card } from '../../shared/card/card';
 import { createCalibration, exportCalibrations, getCalibrations, CalibrationRecord } from '../../api/dashboard.api';
+import { userService } from '../../services/userService';
 
 // Layout styles aligned with existing sections
 const Container = styled.div`
@@ -105,6 +106,7 @@ export const Calibrations: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -119,7 +121,20 @@ export const Calibrations: React.FC = () => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        const current = await userService.getCurrentUser();
+        const allowed = !!(current as any)?.perfil?.permisos?.VerCalibraciones;
+        setHasPermission(allowed);
+        if (allowed) {
+          await load();
+        }
+      } catch (e) {
+        setHasPermission(false);
+      }
+    })();
+  }, []);
 
   const onAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +165,26 @@ export const Calibrations: React.FC = () => {
       setError(e?.message || 'Error exportando calibraciones');
     }
   };
+
+  if (hasPermission === false) {
+    return (
+      <Container>
+        <BarraLateral abierta={sidebarAbierta} />
+        <MainContent>
+          <BarraArriba vistaActual="Calibraciones" onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)} />
+          <ContentWrapper>
+            <Card>
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <i className="fas fa-lock" style={{ fontSize: '3rem', marginBottom: '0.5rem', color: '#ccc' }}></i>
+                <h3>Acceso denegado</h3>
+                <p>No tienes permiso para ver las calibraciones.</p>
+              </div>
+            </Card>
+          </ContentWrapper>
+        </MainContent>
+      </Container>
+    );
+  }
 
   return (
     <Container>

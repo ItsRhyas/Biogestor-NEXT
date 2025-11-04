@@ -12,6 +12,7 @@ export const PermisosVista = () => {
     const [usuariosNoAprobados, setUsuariosNoAprobados] = useState<User[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [allowed, setAllowed] = useState<boolean | null>(null);
     const location = useLocation();
 
     // Función para obtener el nombre de la vista actual basado en la ruta
@@ -57,8 +58,34 @@ export const PermisosVista = () => {
     };
 
     useEffect(() => {
-        obtenerDatos();
+        (async () => {
+            try {
+                const current = await userService.getCurrentUser();
+                const can = !!(current as any)?.perfil?.permisos?.AprobarUsuarios;
+                setAllowed(can);
+                if (can) {
+                    await obtenerDatos();
+                }
+            } catch (e) {
+                setAllowed(false);
+            }
+        })();
     }, []);
+
+    if (allowed === false) {
+        return (
+            <MainLayout currentView={getCurrentViewName()} onViewChange={() => {}}>
+                <div style={{ padding: 20 }}>
+                    <Card ancho={1200}>
+                        <div style={{ textAlign: 'center', padding: '2rem' }}>
+                            <h3>Acceso denegado</h3>
+                            <p>No tienes permisos para gestionar usuarios o permisos.</p>
+                        </div>
+                    </Card>
+                </div>
+            </MainLayout>
+        );
+    }
 
     if (loading) {
         return (

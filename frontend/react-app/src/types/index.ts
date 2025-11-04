@@ -8,6 +8,19 @@ export interface User {
   last_name: string;
   perfil: {
     aprobado: boolean;
+    rol?: 'ADMIN' | 'COLAB' | 'VISIT';
+    permisos?: {
+      // Bandera de visualización del dashboard/sensores
+      VerDashboard?: boolean;
+      // Otras posibles banderas
+      AprobarUsuarios?: boolean;
+      VerReportes?: boolean;
+      GenerarReportes?: boolean;
+      VerInventario?: boolean;
+      ModificarInventario?: boolean;
+      // Permitir claves adicionales sin tipar estrictamente
+      [key: string]: any;
+    };
   };
 }
 

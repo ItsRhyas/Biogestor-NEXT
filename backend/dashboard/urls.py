@@ -13,6 +13,9 @@ from .views import (
     CalibrationExportAPIView,
     ReportByRangeAPIView,
     PredictEfficiencyAPIView,
+    PracticeStatusAPIView,
+    PracticeStartAPIView,
+    PracticeStopAPIView,
 )
 
 urlpatterns = [
@@ -34,4 +37,7 @@ urlpatterns = [
     path('calibrations/', CalibrationAPIView.as_view(), name='calibrations'),
     path('calibrations/export/', CalibrationExportAPIView.as_view(), name='calibrations_export'),
     path('stats/', StatsAPIView.as_view(), name='dashboard_stats'),
+    path('practice/status/', PracticeStatusAPIView.as_view(), name='practice_status'),
+    path('practice/start/', PracticeStartAPIView.as_view(), name='practice_start'),
+    path('practice/stop/', PracticeStopAPIView.as_view(), name='practice_stop'),
 ]

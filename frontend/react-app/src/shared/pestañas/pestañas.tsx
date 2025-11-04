@@ -131,6 +131,7 @@ export default function BasicTabs(props: PestañaProps & TiposUsuarios) {
         { id: '2', codename: 'VerReportes', name: 'Ver Reportes', granted: false },
         { id: '3', codename: 'GenerarReportes', name: 'Generar Reportes', granted: false },
         { id: '7', codename: 'VerDashboard', name: 'Ver Dashboard', granted: false },
+        { id: '10', codename: 'VerCalibraciones', name: 'Ver Calibraciones', granted: false },
         { id: '8', codename: 'VerInventario', name: 'Ver Inventario', granted: false },
         { id: '9', codename: 'ModificarInventario', name: 'Modificar Inventario', granted: false },
       ];
@@ -217,6 +218,30 @@ export default function BasicTabs(props: PestañaProps & TiposUsuarios) {
     } catch (error) {
       console.error('Error al actualizar permisos:', error);
       alert('Error al actualizar permisos');
+    } finally {
+      setPermisosLoading(false);
+    }
+  };
+
+  // Aplicar presets de rol recomendados
+  const aplicarPresetRol = async (rol: 'ADMIN'|'COLAB'|'VISIT') => {
+    if (!usuarioPermisosSeleccionado) return;
+    if (!usuarioActualPuedeGestionarPermisos) {
+      alert('No tienes permisos para gestionar permisos');
+      return;
+    }
+    setPermisosLoading(true);
+    try {
+      await userService.setUserRole(usuarioPermisosSeleccionado.id, rol);
+      // Refrescar permisos desde servidor para reflejar cambios
+      const resp = await userService.getUserPermissions(usuarioPermisosSeleccionado.id);
+      const nuevos: {[key: string]: boolean} = {};
+      resp.permisos.forEach(p => { nuevos[p.codename] = p.granted; });
+      setPermisos(resp.permisos);
+      setPermisosActualizados(nuevos);
+      alert(`Rol establecido a ${rol}`);
+    } catch (e: any) {
+      alert(e.message || 'No se pudo aplicar el preset');
     } finally {
       setPermisosLoading(false);
     }
@@ -331,6 +356,22 @@ export default function BasicTabs(props: PestañaProps & TiposUsuarios) {
                 <p><strong>Usuario:</strong> {usuarioPermisosSeleccionado.first_name} {usuarioPermisosSeleccionado.last_name}</p>
                 <p><strong>Email:</strong> {usuarioPermisosSeleccionado.email}</p>
                 <p><strong>Username:</strong> {usuarioPermisosSeleccionado.username}</p>
+                {usuarioPermisosSeleccionado.perfil?.rol && (
+                  <p><strong>Rol actual:</strong> {usuarioPermisosSeleccionado.perfil.rol}</p>
+                )}
+              </div>
+
+              {/* Presets de rol */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                <Button variant="contained" color="primary" disabled={permisosLoading || !usuarioActualPuedeGestionarPermisos} onClick={() => aplicarPresetRol('ADMIN')}>
+                  Aplicar: Administrador
+                </Button>
+                <Button variant="contained" color="secondary" disabled={permisosLoading || !usuarioActualPuedeGestionarPermisos} onClick={() => aplicarPresetRol('COLAB')}>
+                  Aplicar: Colaborador
+                </Button>
+                <Button variant="outlined" disabled={permisosLoading || !usuarioActualPuedeGestionarPermisos} onClick={() => aplicarPresetRol('VISIT')}>
+                  Aplicar: Visitante
+                </Button>
               </div>
 
               <div style={{ marginBottom: '20px' }}>

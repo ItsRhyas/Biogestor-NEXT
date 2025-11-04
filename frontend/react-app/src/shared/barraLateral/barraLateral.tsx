@@ -2,12 +2,15 @@ import styled from 'styled-components'
 import { Boton } from "../Boton/boton"
 import logo from '../../assets/logo.png'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 
 import { LuActivity } from "react-icons/lu";
 import { LuFileText } from "react-icons/lu";
 import { LuUser } from "react-icons/lu";
 import { LuCalculator } from "react-icons/lu";
 import { LuWrench } from "react-icons/lu";
+import { userService } from '../../services/userService'
+import { Permission } from '../../types'
 
 
 // #dee2e6
@@ -77,6 +80,46 @@ const Menu = styled.div`
 export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [canViewDashboard, setCanViewDashboard] = useState<boolean>(true);
+  const [canManagePermissions, setCanManagePermissions] = useState<boolean>(false);
+  const [canViewCalibrations, setCanViewCalibrations] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Cargar permisos del usuario actual y determinar si puede ver el dashboard/sensores
+    (async () => {
+      try {
+        const currentUser = await userService.getCurrentUser();
+        const direct = (currentUser as any)?.perfil?.permisos?.VerDashboard;
+        if (typeof direct === 'boolean') {
+          setCanViewDashboard(direct);
+          const permsAny = (currentUser as any)?.perfil?.permisos || {};
+          setCanManagePermissions(!!permsAny.AprobarUsuarios);
+          setCanViewCalibrations(!!permsAny.VerCalibraciones);
+          return;
+        }
+        // Fallback a endpoint de permisos (restringido para admins)
+        try {
+          const perms = await userService.getUserPermissions(currentUser.id);
+          const puedeVer = perms.permisos.some((p: Permission) => p.codename === 'VerDashboard' && p.granted);
+          const puedePermisos = perms.permisos.some((p: Permission) => p.codename === 'AprobarUsuarios' && p.granted);
+          const puedeCal = perms.permisos.some((p: Permission) => p.codename === 'VerCalibraciones' && p.granted);
+          setCanViewDashboard(puedeVer);
+          setCanManagePermissions(puedePermisos);
+          setCanViewCalibrations(puedeCal);
+        } catch (_err) {
+          // Si no se puede consultar, por seguridad ocultar
+          setCanViewDashboard(false);
+          setCanManagePermissions(false);
+          setCanViewCalibrations(false);
+        }
+      } catch (e) {
+        // Si falla, por seguridad no mostrar Sensores
+        setCanViewDashboard(false);
+        setCanManagePermissions(false);
+        setCanViewCalibrations(false);
+      }
+    })();
+  }, []);
 
   const itemsMenu = [
     { 
@@ -141,6 +184,14 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
     }
   }
  
+  // Filtrar por permisos (ocultar Sensores si no tiene VerDashboard)
+  const visibleItems = itemsMenu.filter(item => {
+    if (item.label === 'Sensores' && !canViewDashboard) return false;
+    if (item.label === 'Permisos' && !canManagePermissions) return false;
+    if (item.label === 'Calibraciones' && !canViewCalibrations) return false;
+    return true;
+  });
+
   return (
     <SidebarStyled $abierta={abierta}>
       <Encabezado>
@@ -155,7 +206,7 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       </Encabezado>
       
       <Menu>
-        {itemsMenu.map((item, index) => (
+        {visibleItems.map((item, index) => (
           <Boton
             key={index}
             size="medium"

@@ -122,3 +122,21 @@ class CalibrationRecord(models.Model):
 
 	def __str__(self) -> str:
 		return f"Calibración {self.sensor_name} {self.date}"
+
+
+class PracticeSession(models.Model):
+	"""Ventana de tiempo para recopilar datos de práctica."""
+	started_at = models.DateTimeField(auto_now_add=True)
+	ended_at = models.DateTimeField(null=True, blank=True)
+	started_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, null=True, related_name='practice_sessions_started')
+	ended_by = models.ForeignKey(get_user_model(), on_delete=models.SET_NULL, null=True, blank=True, related_name='practice_sessions_ended')
+
+	class Meta:
+		ordering = ['-started_at']
+
+	def __str__(self):
+		return f"Práctica {self.started_at:%Y-%m-%d %H:%M} - {'activa' if not self.ended_at else 'finalizada'}"
+
+	@property
+	def is_active(self) -> bool:
+		return self.ended_at is None

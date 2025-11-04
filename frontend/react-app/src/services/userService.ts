@@ -111,6 +111,15 @@ export const userService = {
         'Error al actualizar permisos del usuario'
       );
     }
+  },
+
+  async setUserRole(userId: number, role: 'ADMIN'|'COLAB'|'VISIT') {
+    try {
+      const response = await apiClient.post(`/api/usuarios/${userId}/rol/establecer/`, { rol: role });
+      return response.data as { usuario_id: number; rol: string; permisos: any; usuario: User };
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || 'Error al establecer rol');
+    }
   }
 }; // ✅ ESTA ES LA LLAVE DE CIERRE QUE FALTABA
 

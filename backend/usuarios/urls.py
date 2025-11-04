@@ -10,7 +10,8 @@ from .views import (
     usuarios_pendientes,
     ver_permisos_usuarios,
     cambiar_permisos,
-    google_login
+    google_login,
+    establecer_rol_usuario,
 )
 
 urlpatterns = [
@@ -27,11 +28,9 @@ urlpatterns = [
     path('api/usuarios/', listar_usuarios, name='listar_usuarios'),
     path('api/usuarios/pendientes/', usuarios_pendientes,
          name='usuarios_pendientes'),
-    path('api/usuario/<int:usuario_id>/aprobar/',
-         aprobar_usuario, name='aprobar_usuario'),
-    
-     path('api/usuarios/<int:usuario_id>/ver-permisos/', ver_permisos_usuarios, name='ver_permisos'),
-    
+    path('api/usuario/<int:usuario_id>/aprobar/', aprobar_usuario, name='aprobar_usuario'),
+    path('api/usuarios/<int:usuario_id>/ver-permisos/', ver_permisos_usuarios, name='ver_permisos'),
+    path('api/usuarios/<int:usuario_id>/rol/establecer/', establecer_rol_usuario, name='establecer_rol_usuario'),
     path('api/usuarios/<int:usuario_id>/cambiar-permisos/', cambiar_permisos, name='cambiar_permisos'),
     
 ]

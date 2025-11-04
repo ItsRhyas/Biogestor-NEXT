@@ -5,10 +5,18 @@ from django.contrib.auth.password_validation import validate_password
 from .models import Perfil, Permisos
 
 
+class PermisosSerializer (serializers.ModelSerializer):
+    class Meta:
+        model = Permisos
+        fields = '__all__'
+
+
 class PerfilSerializer (serializers.ModelSerializer):
+    permisos = PermisosSerializer(read_only=True)
+
     class Meta:
         model = Perfil
-        fields = ["aprobado", "rol"]
+        fields = ["aprobado", "rol", "permisos"]
 
 
 class UsuarioSerializer (serializers.ModelSerializer):
@@ -19,10 +27,7 @@ class UsuarioSerializer (serializers.ModelSerializer):
         fields = ["id", "username", "email",
                   "first_name", "last_name", "perfil"]
         
-class PermisosSerializer (serializers.ModelSerializer):
-    class Meta:
-        model = Permisos
-        fields = '__all__'
+ 
 
 
 class ValidarAprobacion (TokenObtainPairSerializer):
@@ -103,17 +108,17 @@ class RegistrarUsuario (serializers.ModelSerializer):
         return user
 
 
-{
-    "username": "usuario123",
-    "password": "contraseñaSegura123",
-    "password2": "contraseñaSegura123",
-    "email": "usuario@ejemplo.com",
-    "first_name": "Juan",
-    "last_name": "Pérez"
-}
+# {
+#     "username": "usuario123",
+#     "password": "contraseñaSegura123",
+#     "password2": "contraseñaSegura123",
+#     "email": "usuario@ejemplo.com",
+#     "first_name": "Juan",
+#     "last_name": "Pérez"
+# }
 
 
-{
-    "username": "usuario123",
-    "password": "contraseñaSegura123"
-}
+# {
+#     "username": "usuario123",
+#     "password": "contraseñaSegura123"
+# }

@@ -8,6 +8,7 @@ class Permisos(models.Model):
     VerReportes = models.BooleanField(default=False)
     GenerarReportes = models.BooleanField(default=False)
     VerDashboard = models.BooleanField(default=False)
+    VerCalibraciones = models.BooleanField(default=False)
     VerInventario = models.BooleanField(default=False)
     ModificarInventario = models.BooleanField(default=False)
     # Campos obsoletos eliminados: VerRecursos, SubirRecursos, DescargarRecursos, InteractuarChatbot, VerDocumentacion

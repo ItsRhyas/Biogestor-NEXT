@@ -15,6 +15,8 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { getCurrentProduction, CurrentProductionResponse, createFilling, createActuatorCommand, getAlerts, resolveAlert } from '../../api/dashboard.api';
+import { userService } from '../../services/userService';
+import { Permission } from '../../types';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -313,6 +315,7 @@ export const Sensors: React.FC = () => {
   });
   // const location = useLocation();
   const wsRef = useRef<WebSocket | null>(null);
+  const [hasDashboardPermission, setHasDashboardPermission] = useState<boolean | null>(null);
 
   // Función para preparar datos para Chart.js
   const prepareChartData = (chartData: SensorChart) => {
@@ -387,8 +390,33 @@ export const Sensors: React.FC = () => {
     });
   };
 
-  // Conexión WebSocket
+  // Verificar permiso para ver dashboard/sensores
   useEffect(() => {
+    (async () => {
+      try {
+        const current = await userService.getCurrentUser();
+        const direct = (current as any)?.perfil?.permisos?.VerDashboard;
+        if (typeof direct === 'boolean') {
+          setHasDashboardPermission(direct);
+          return;
+        }
+        // Fallback a consulta de permisos si no viene en el usuario (probablemente solo admin)
+        try {
+          const perms = await userService.getUserPermissions(current.id);
+          const allowed = perms.permisos.some((p: Permission) => p.codename === 'VerDashboard' && p.granted);
+          setHasDashboardPermission(allowed);
+        } catch (_err) {
+          setHasDashboardPermission(false);
+        }
+      } catch (e) {
+        setHasDashboardPermission(false);
+      }
+    })();
+  }, []);
+
+  // Conexión WebSocket (solo si tiene permiso)
+  useEffect(() => {
+    if (hasDashboardPermission !== true) return;
   const connectWebSocket = () => {
       try {
   // Construir URL de WebSocket a partir de la base HTTP
@@ -460,7 +488,45 @@ export const Sensors: React.FC = () => {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [hasDashboardPermission]);
+
+  if (hasDashboardPermission === null) {
+    return (
+      <Container>
+        <BarraLateral abierta={sidebarAbierta} />
+        <MainContent>
+          <BarraArriba
+            vistaActual="Sensores"
+            onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
+          />
+          <ContentWrapper>
+            <NoChartsMessage>Cargando permisos...</NoChartsMessage>
+          </ContentWrapper>
+        </MainContent>
+      </Container>
+    );
+  }
+
+  if (!hasDashboardPermission) {
+    return (
+      <Container>
+        <BarraLateral abierta={sidebarAbierta} />
+        <MainContent>
+          <BarraArriba
+            vistaActual="Sensores"
+            onToggleSidebar={() => setSidebarAbierta(!sidebarAbierta)}
+          />
+          <ContentWrapper>
+            <NoChartsMessage>
+              <i className="fas fa-lock" style={{ fontSize: '3rem', marginBottom: '1rem', color: '#ccc' }}></i>
+              <h3>Acceso denegado</h3>
+              <p>No tienes permiso para ver la información de sensores (VerDashboard).</p>
+            </NoChartsMessage>
+          </ContentWrapper>
+        </MainContent>
+      </Container>
+    );
+  }
 
   return (
     <Container>

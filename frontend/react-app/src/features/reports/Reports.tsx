@@ -4,7 +4,7 @@ import { Card } from '../../shared/card/card';
 import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 import styled from 'styled-components';
-import { createReport, getReportHistory, downloadReportFile, closeCurrentFilling, reportByRange } from '../../api/dashboard.api';
+import { createReport, getReportHistory, downloadReportFile, closeCurrentFilling, reportByRange, getPracticeStatus, startPractice, stopPractice } from '../../api/dashboard.api';
 
 // Styled-components missing definitions
 const ContentWrapper = styled.div`
@@ -267,6 +267,9 @@ export const Reports: React.FC = () => {
   const [reportLinks, setReportLinks] = useState<{ pdf?: string; excel?: string; csv?: string }>({});
   const [rangeStart, setRangeStart] = useState<string>('');
   const [rangeEnd, setRangeEnd] = useState<string>('');
+  // Prácticas
+  const [practiceStatus, setPracticeStatus] = useState<{active: any|null; last: any|null}>({active: null, last: null});
+  const [practiceBusy, setPracticeBusy] = useState(false);
   // (Eliminado) Estado de vista previa
 
   // Estado para datos reales
@@ -299,6 +302,13 @@ export const Reports: React.FC = () => {
       }
     };
     fetchData();
+    // Estado de práctica
+    (async () => {
+      try {
+        const st = await getPracticeStatus();
+        setPracticeStatus(st);
+      } catch {}
+    })();
   }, []);
 
   // Filtrado de historial
@@ -453,6 +463,31 @@ export const Reports: React.FC = () => {
               }}>
                 <Icon className="fas fa-lock" /> Cerrar etapa activa
               </ExportButton>
+            </div>
+            {/* Reporte de prácticas */}
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #ddd', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <h4 style={{ margin: 0 }}>Reporte de prácticas:</h4>
+              {practiceStatus.active ? (
+                <>
+                  <span>Activo desde: {new Date(practiceStatus.active.started_at).toLocaleString()}</span>
+                  <ExportButton disabled={practiceBusy} onClick={async () => {
+                    try { setPracticeBusy(true); const blob = await stopPractice('excel'); const url = URL.createObjectURL(new Blob([blob])); const a = document.createElement('a'); a.href = url; a.download = 'reporte_practica.xlsx'; a.click(); URL.revokeObjectURL(url); const st = await getPracticeStatus(); setPracticeStatus(st); } catch { alert('No se pudo detener/descargar'); } finally { setPracticeBusy(false); }
+                  }}>
+                    <Icon className="fas fa-file-excel" /> Detener y descargar (Excel)
+                  </ExportButton>
+                  <ExportButton disabled={practiceBusy} onClick={async () => {
+                    try { setPracticeBusy(true); const blob = await stopPractice('csv'); const url = URL.createObjectURL(new Blob([blob])); const a = document.createElement('a'); a.href = url; a.download = 'reporte_practica.csv'; a.click(); URL.revokeObjectURL(url); const st = await getPracticeStatus(); setPracticeStatus(st); } catch { alert('No se pudo detener/descargar'); } finally { setPracticeBusy(false); }
+                  }}>
+                    <Icon className="fas fa-file-csv" /> Detener y descargar (CSV)
+                  </ExportButton>
+                </>
+              ) : (
+                <CreateReportButton disabled={practiceBusy} onClick={async () => {
+                  try { setPracticeBusy(true); await startPractice(); const st = await getPracticeStatus(); setPracticeStatus(st); } catch { alert('No se pudo iniciar'); } finally { setPracticeBusy(false); }
+                }}>
+                  <Icon className="fas fa-play" /> Iniciar práctica
+                </CreateReportButton>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
               <input type="date" value={rangeStart} onChange={e => setRangeStart(e.target.value)} />

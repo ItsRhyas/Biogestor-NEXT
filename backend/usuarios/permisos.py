@@ -21,3 +21,29 @@ class PuedeAprobarUsuarios(permissions.BasePermission):
             hasattr(request.user, 'perfil') and 
             request.user.perfil.permisos.AprobarUsuarios  
         )
+
+
+class PuedeVerDashboard(permissions.BasePermission):
+    """
+    Permiso personalizado para acceder a vistas relacionadas con el dashboard/sensores.
+    Requiere usuario autenticado con el flag VerDashboard en su perfil.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and
+            hasattr(request.user, 'perfil') and
+            getattr(getattr(request.user.perfil, 'permisos', None), 'VerDashboard', False)
+        )
+
+
+class PuedeVerCalibraciones(permissions.BasePermission):
+    """
+    Permiso para acceder a vistas de calibraciones (listar/exportar/crear si así se decide).
+    Requiere flag VerCalibraciones en el perfil del usuario.
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated and
+            hasattr(request.user, 'perfil') and
+            getattr(getattr(request.user.perfil, 'permisos', None), 'VerCalibraciones', False)
+        )

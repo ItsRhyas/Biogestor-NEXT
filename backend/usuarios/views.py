@@ -293,3 +293,63 @@ def usuarios_pendientes(request):
         'total_pendientes': usuarios_pendientes.count(),
         'usuarios': serializer.data
     })
+
+# Endpoint para establecer rol con permisos recomendados
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, PuedeAprobarUsuarios])
+def establecer_rol_usuario(request, usuario_id: int):
+    """
+    Establece el rol del usuario (ADMIN | COLAB | VISIT) y aplica permisos recomendados.
+    Body: { "rol": "ADMIN" | "COLAB" | "VISIT" }
+    """
+    role = str(request.data.get('rol') or '').upper()
+    if role not in ('ADMIN', 'COLAB', 'VISIT'):
+        return Response({"error": "Rol inválido"}, status=400)
+
+    try:
+        usuario = User.objects.get(id=usuario_id)
+    except User.DoesNotExist:
+        return Response({"error": "Usuario no encontrado"}, status=404)
+
+    if not hasattr(usuario, 'perfil'):
+        return Response({"error": "El usuario no tiene perfil"}, status=404)
+
+    perfil: Perfil = usuario.perfil
+    permisos: Permisos = perfil.permisos
+
+    # Mapear permisos recomendados por rol
+    if role == 'ADMIN':
+        permisos.AprobarUsuarios = True
+        permisos.VerReportes = True
+        permisos.GenerarReportes = True
+        permisos.VerDashboard = True
+        permisos.VerCalibraciones = True
+        permisos.VerInventario = True
+        permisos.ModificarInventario = True
+    elif role == 'COLAB':
+        permisos.AprobarUsuarios = False
+        permisos.VerReportes = True
+        permisos.GenerarReportes = False
+        permisos.VerDashboard = True
+        permisos.VerCalibraciones = True
+        permisos.VerInventario = False
+        permisos.ModificarInventario = False
+    else:  # VISIT
+        permisos.AprobarUsuarios = False
+        permisos.VerReportes = False
+        permisos.GenerarReportes = False
+        permisos.VerDashboard = False
+        permisos.VerCalibraciones = False
+        permisos.VerInventario = False
+        permisos.ModificarInventario = False
+
+    permisos.save()
+    perfil.rol = role
+    perfil.save()
+
+    return Response({
+        "usuario_id": usuario.id,
+        "rol": perfil.rol,
+        "permisos": PermisosSerializer(permisos).data,
+        "usuario": UsuarioSerializer(usuario).data,
+    })

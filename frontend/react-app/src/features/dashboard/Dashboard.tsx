@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from 'axios';
+import apiClient from '../../services/authService';
 import { Card } from '../../shared/card/card';
 import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
@@ -207,7 +207,7 @@ export const Dashboard: React.FC = () => {
     let mounted = true;
     const fetchUser = async () => {
       try {
-        const resp = await axios.get('/api/usuario/actual/');
+        const resp = await apiClient.get('/api/usuario/actual/');
         if (mounted) setUserData(resp.data as UserProfile);
       } catch (e: any) {
         // Si no autenticado, redirigir a login
@@ -218,7 +218,7 @@ export const Dashboard: React.FC = () => {
     };
     const fetchStats = async () => {
       try {
-        const resp = await axios.get('/api/dashboard/stats/');
+        const resp = await apiClient.get('/api/dashboard/stats/');
         if (mounted) {
           const d = resp.data || {};
           setStats({
