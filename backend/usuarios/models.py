@@ -18,8 +18,14 @@ class Perfil(models.Model):
 
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='perfil')
+    ROLE_CHOICES = [
+        ("ADMIN", "Administrador"),
+        ("COLAB", "Colaborador"),
+        ("VISIT", "Visitante"),
+    ]
     aprobado = models.BooleanField(default=False)
+    rol = models.CharField(max_length=10, choices=ROLE_CHOICES, default="VISIT")
     permisos = models.ForeignKey(Permisos, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'Perfil de {self.user.username} - {"Aprobado" if self.aprobado else "Pendiente"}'
+        return f'Perfil de {self.user.username} - {self.get_rol_display()} - {"Aprobado" if self.aprobado else "Pendiente"}'

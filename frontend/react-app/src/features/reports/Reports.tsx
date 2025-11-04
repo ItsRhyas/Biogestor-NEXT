@@ -4,7 +4,7 @@ import { Card } from '../../shared/card/card';
 import { BarraLateral } from '../../shared/barraLateral/barraLateral';
 import { BarraArriba } from '../../shared/barraAriiba/barraArriba';
 import styled from 'styled-components';
-import { createReport, getReportHistory, downloadReportFile } from '../../api/dashboard.api';
+import { createReport, getReportHistory, downloadReportFile, closeCurrentFilling, reportByRange } from '../../api/dashboard.api';
 
 // Styled-components missing definitions
 const ContentWrapper = styled.div`
@@ -265,6 +265,8 @@ export const Reports: React.FC = () => {
   const [reportType, setReportType] = useState<'normal' | 'final'>('normal');
   const [observations, setObservations] = useState('');
   const [reportLinks, setReportLinks] = useState<{ pdf?: string; excel?: string; csv?: string }>({});
+  const [rangeStart, setRangeStart] = useState<string>('');
+  const [rangeEnd, setRangeEnd] = useState<string>('');
   // (Eliminado) Estado de vista previa
 
   // Estado para datos reales
@@ -438,6 +440,40 @@ export const Reports: React.FC = () => {
               <CreateReportButton disabled={downloading} onClick={handleCreateReport}>
                 <Icon className="fas fa-file-alt" /> Solicitar Reporte
               </CreateReportButton>
+              <ExportButton onClick={async () => {
+                try {
+                  const res = await closeCurrentFilling();
+                  alert(res.detail);
+                  const hist = await getReportHistory();
+                  setHistory(hist);
+                } catch (e: any) {
+                  const detail = e?.response?.data?.detail || 'No se pudo cerrar la etapa activa.';
+                  alert(detail);
+                }
+              }}>
+                <Icon className="fas fa-lock" /> Cerrar etapa activa
+              </ExportButton>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, flexWrap: 'wrap' }}>
+              <input type="date" value={rangeStart} onChange={e => setRangeStart(e.target.value)} />
+              <input type="date" value={rangeEnd} onChange={e => setRangeEnd(e.target.value)} />
+              <ExportButton onClick={async () => {
+                if (!rangeStart || !rangeEnd) { setDownloadError('Selecciona rango de fechas'); return; }
+                try {
+                  setDownloading(true);
+                  const blob = await reportByRange(rangeStart, rangeEnd, 'excel');
+                  const url = URL.createObjectURL(new Blob([blob]));
+                  const a = document.createElement('a');
+                  a.href = url; a.download = 'reporte_rango.xlsx'; a.click();
+                  URL.revokeObjectURL(url);
+                } catch (e) {
+                  setDownloadError('Error generando reporte por rango');
+                } finally {
+                  setDownloading(false);
+                }
+              }}>
+                <Icon className="fas fa-file-excel" /> Reporte por Rango
+              </ExportButton>
             </div>
             {/* Botones de descarga si hay links */}
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>

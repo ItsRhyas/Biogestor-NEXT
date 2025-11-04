@@ -9,13 +9,15 @@ from .views import (
     listar_usuarios,
     usuarios_pendientes,
     ver_permisos_usuarios,
-    cambiar_permisos
+    cambiar_permisos,
+    google_login
 )
 
 urlpatterns = [
     # Autenticación
     path('api/crear-usuario/', crear_usuario, name='crear_usuario'),
     path('api/iniciar-sesion/', IniciarSesionView.as_view(), name='iniciar_sesion'),
+    path('api/google-login/', google_login, name='google_login'),
     path('api/cerrar-sesion/', cerrar_sesion, name='cerrar_sesion'),
     path('api/refrescar-token/', TokenRefreshView.as_view(), name='refrescar_token'),
 

@@ -7,6 +7,7 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { Sensors } from './features/sensors/Sensors';
 import { Reports } from './features/reports/Reports';
 import { ProductionCalculator } from './features/calculator/ProductionCalculator';
+import { Calibrations } from './features/calibrations/Calibrations';
 import './services/interceptor';
 import { useEffect } from 'react';
 import AlertDialog from './shared/popup/popup';
@@ -88,6 +89,15 @@ function App() {
           element={
             <ProtectedRoute>
               <PermisosVista />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/calibraciones" 
+          element={
+            <ProtectedRoute>
+              <Calibrations />
             </ProtectedRoute>
           } 
         />

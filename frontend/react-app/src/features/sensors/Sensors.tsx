@@ -14,7 +14,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { getCurrentProduction, CurrentProductionResponse, createFilling } from '../../api/dashboard.api';
+import { getCurrentProduction, CurrentProductionResponse, createFilling, createActuatorCommand, getAlerts, resolveAlert } from '../../api/dashboard.api';
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -300,6 +300,7 @@ export const Sensors: React.FC = () => {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [prod, setProd] = useState<CurrentProductionResponse | null>(null);
   const [showFillingModal, setShowFillingModal] = useState(false);
+  const [alertBanner, setAlertBanner] = useState<{ id:number; level:string; message:string } | null>(null);
   const [fillingForm, setFillingForm] = useState({
     date: new Date().toISOString().slice(0,10),
     number: 1,
@@ -424,6 +425,9 @@ export const Sensors: React.FC = () => {
               if (Object.keys(sensorData).length > 0) {
                 updateChartsFromSensorData(sensorData);
               }
+            } else if (message.type === 'alert') {
+              // Mostrar alerta en banner simple
+              setAlertBanner({ id: message.id, level: message.level, message: message.message });
             }
           } catch (error) {
             console.error('Error procesando mensaje WebSocket:', error);
@@ -475,6 +479,19 @@ export const Sensors: React.FC = () => {
             {isConnected ? 'Conectado al servidor en tiempo real' : 'Desconectado'}
             {connectionError && ` - ${connectionError}`}
           </ConnectionStatus>
+
+          {/* Banner de alerta */}
+          {alertBanner && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: 4, marginBottom: '1rem', backgroundColor: '#fff3cd', color: '#856404', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <i className="fas fa-exclamation-triangle" style={{ marginRight: 8 }}></i>
+                {alertBanner.message} ({alertBanner.level})
+              </div>
+              <button onClick={() => setAlertBanner(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                Ocultar
+              </button>
+            </div>
+          )}
 
           {/* Tarjetas de Resumen */}
           {charts.length > 0 && (
@@ -601,6 +618,18 @@ export const Sensors: React.FC = () => {
                 </NoChartsMessage>
               )}
             </ChartContainer>
+          </ChartCard>
+
+          {/* Control básico de actuadores */}
+          <ChartCard style={{ marginTop: '1rem', padding: '1rem' }}>
+            <ChartTitle>
+              <ChartIcon $color="#1976d2" className="fas fa-sliders-h" />
+              Control de actuadores
+            </ChartTitle>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={async () => { await createActuatorCommand({ device: 'electrovalvula', target: 'valvula_1', action: 'OPEN' }); alert('Comando enviado'); }} style={{ background: '#1976d2', color: 'white', border: 'none', borderRadius: 4, padding: '0.5rem 1rem', cursor: 'pointer' }}>Abrir Válvula 1</button>
+              <button onClick={async () => { await createActuatorCommand({ device: 'electrovalvula', target: 'valvula_1', action: 'CLOSE' }); alert('Comando enviado'); }} style={{ background: '#d32f2f', color: 'white', border: 'none', borderRadius: 4, padding: '0.5rem 1rem', cursor: 'pointer' }}>Cerrar Válvula 1</button>
+            </div>
           </ChartCard>
 
           {/* Modal de Nuevo Llenado */}

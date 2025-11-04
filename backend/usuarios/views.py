@@ -15,6 +15,15 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Permisos, Perfil
 from .permisos import PuedeAprobarUsuarios
+import os
+from datetime import datetime
+
+try:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+except Exception:
+    google_id_token = None
+    google_requests = None
 
 # Le sabe chapi a los views
 
@@ -81,6 +90,63 @@ def cerrar_sesion(request):
             {'error': 'Token inválido'},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+# Google OAuth login
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_login(request):
+    """
+    Intercambia un Google ID Token por un par de tokens JWT locales.
+    Espera: { "id_token": "..." }
+    Requiere variable de entorno GOOGLE_OAUTH_CLIENT_ID para verificación.
+    """
+    if google_id_token is None:
+        return Response({"error": "Dependencias de Google no instaladas"}, status=500)
+
+    id_token_value = request.data.get('id_token')
+    if not id_token_value:
+        return Response({"error": "id_token requerido"}, status=400)
+
+    client_id = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
+    if not client_id:
+        return Response({"error": "Configurar GOOGLE_OAUTH_CLIENT_ID"}, status=500)
+
+    try:
+        info = google_id_token.verify_oauth2_token(id_token_value, google_requests.Request(), client_id)
+        # info contiene fields como: sub (user id), email, email_verified, name, picture, given_name, family_name
+        email = info.get('email')
+        first_name = info.get('given_name', '')
+        last_name = info.get('family_name', '')
+        username_base = (email.split('@')[0] if email else f"google_{info.get('sub')}")
+
+        user, created = User.objects.get_or_create(email=email, defaults={
+            'username': username_base,
+            'first_name': first_name,
+            'last_name': last_name,
+        })
+        if created:
+            # Señal creará Perfil + Permisos; por defecto rol VISIT y no aprobado.
+            pass
+
+        # Reglas de aprobación automática opcionales (dominio institucional)
+        allowed_domain = os.getenv('GOOGLE_ALLOWED_DOMAIN')
+        if allowed_domain and email and email.endswith(f"@{allowed_domain}"):
+            if hasattr(user, 'perfil'):
+                user.perfil.aprobado = True
+                if user.perfil.rol == 'VISIT':
+                    user.perfil.rol = 'COLAB'
+                user.perfil.save()
+
+        # Emitir tokens JWT
+        refresh = RefreshToken.for_user(user)
+        data_user = UsuarioSerializer(user).data
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': data_user
+        })
+    except Exception as e:
+        return Response({"error": f"Token inválido: {e}"}, status=400)
 
 # Endpoint para aprobar usuarios
 

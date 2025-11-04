@@ -219,7 +219,14 @@ export const Dashboard: React.FC = () => {
     const fetchStats = async () => {
       try {
         const resp = await axios.get('/api/dashboard/stats/');
-        if (mounted) setStats(resp.data as DashboardStats);
+        if (mounted) {
+          const d = resp.data || {};
+          setStats({
+            etapasActivas: d.etapas_activas ?? 0,
+            reportesGenerados: d.reportes_generados ?? 0,
+            lecturasHoy: d.lecturas_hoy ?? 0,
+          });
+        }
       } catch (e) {
         // Silenciar por ahora; podemos mostrar fallback si hace falta
       }

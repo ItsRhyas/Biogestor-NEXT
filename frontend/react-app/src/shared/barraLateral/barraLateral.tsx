@@ -7,6 +7,7 @@ import { LuActivity } from "react-icons/lu";
 import { LuFileText } from "react-icons/lu";
 import { LuUser } from "react-icons/lu";
 import { LuCalculator } from "react-icons/lu";
+import { LuWrench } from "react-icons/lu";
 
 
 // #dee2e6
@@ -111,6 +112,14 @@ export const BarraLateral = ({ abierta = true, onBotonClick }: BarraLateralProps
       color: "#fafafa",
       path: "/reportes",
       isActive: location.pathname === '/reportes'
+    },
+    { 
+      label: "Calibraciones", 
+      content: "Historial y registro",
+      icon: <LuWrench/>,
+      color: "#fafafa",
+      path: "/calibraciones",
+      isActive: location.pathname === '/calibraciones'
     },
     { 
       label: "Calculadora de productos", 

@@ -8,13 +8,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.decorators import api_view
 from django.core.files.base import ContentFile
-from .models import FillingStage, SensorReading, Report
-from .serializers import FillingStageSerializer, ReportSerializer
+from .models import FillingStage, SensorReading, Report, ActuatorCommand, Alert, CalibrationRecord
+from .serializers import FillingStageSerializer, ReportSerializer, ActuatorCommandSerializer, AlertSerializer, CalibrationRecordSerializer
 from biocalculadora.calculators import estimate_timeseries_for_material
 from datetime import datetime, timedelta
 from django.utils import timezone
 import pandas as pd
 import io
+import os
 try:
     from reportlab.pdfgen import canvas
     # Estilos bonitos con Platypus
@@ -58,6 +59,27 @@ class CreateFillingAPIView(APIView):
             filling = serializer.save()
             return Response({"id": filling.id, "detail": "Llenado registrado correctamente."}, status=status.HTTP_201_CREATED)
         return Response({"detail": "Datos inválidos", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+class ListFillingsAPIView(APIView):
+    """Lista las etapas (llenados), por defecto las últimas 20 y la activa primero."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = FillingStage.objects.all().order_by('-active', '-created_at')[:50]
+        data = FillingStageSerializer(qs, many=True).data
+        return Response({"results": data, "count": qs.count()})
+
+class CloseCurrentFillingAPIView(APIView):
+    """Cierra la etapa activa (si existe)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        stage = FillingStage.objects.filter(active=True).order_by('-created_at').first()
+        if stage is None:
+            return Response({"detail": "No hay etapa activa para cerrar."}, status=status.HTTP_404_NOT_FOUND)
+        stage.active = False
+        stage.save()
+        return Response({"detail": f"Etapa #{stage.number} cerrada.", "stage_id": stage.id})
 
 # Utilidad: construir PDF con mejor estética usando ReportLab Platypus
 def build_pretty_report_pdf(*, stage, report_type_label: str, production_estimated: float, production_real: float, inferences_text: str, observations_text: str) -> bytes:
@@ -205,6 +227,35 @@ class StatsAPIView(APIView):
             "etapas_activas": etapas_activas,
             "reportes_generados": reportes_generados,
             "lecturas_hoy": lecturas_hoy,
+        })
+
+class PredictEfficiencyAPIView(APIView):
+    """Predicción simple de eficiencia basada en series esperada vs. real.
+    Retorna A (potencial), eficiencia acumulada (real/estimado) y series recortadas.
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        stage = FillingStage.objects.filter(active=True).order_by('-created_at').first()
+        if not stage:
+            return Response({"detail": "No hay etapa activa"}, status=404)
+
+        prod = CurrentProductionAPIView().get(request).data  # reusar cálculo
+        expected_cum = prod.get('expected', {}).get('cumulative_biogas_m3', []) or []
+        actual_cum = prod.get('actual', {}).get('cumulative_biogas_m3', []) or []
+        if not expected_cum:
+            return Response({"detail": "Serie esperada vacía"}, status=400)
+        # Eficiencia como razón del último valor disponible
+        eff = 0.0
+        try:
+            eff = float(actual_cum[-1]) / float(expected_cum[min(len(expected_cum)-1, len(actual_cum)-1)]) if actual_cum else 0.0
+        except Exception:
+            eff = 0.0
+        return Response({
+            "efficiency_ratio": eff,
+            "stage": stage.id,
+            "expected_cumulative": expected_cum,
+            "actual_cumulative": actual_cum,
         })
 
 class CurrentProductionAPIView(APIView):
@@ -871,3 +922,182 @@ class RegenerateReportAPIView(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"detail": f"Error regenerando reporte: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ReportByRangeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Genera un reporte para un rango de fechas [start_date, end_date].
+        body: { start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD' }
+        """
+        try:
+            start_date = request.data.get('start_date')
+            end_date = request.data.get('end_date')
+            if not start_date or not end_date:
+                return Response({"detail": "start_date y end_date son requeridos"}, status=400)
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date) + timedelta(days=1) - timedelta(seconds=1)
+
+            readings = SensorReading.objects.filter(timestamp__gte=start_dt, timestamp__lte=end_dt).order_by('timestamp')
+            if not readings.exists():
+                return Response({"detail": "No hay lecturas en el rango"}, status=404)
+
+            # Agregar por día acumulado (usamos heurística de gas_total_m3/caudal como en otros endpoints)
+            daily_map = {}
+            last_total_gas = None
+            last_ts = None
+            for r in readings:
+                ts = r.timestamp
+                payload = r.raw_payload or {}
+                delta = 0.0
+                try:
+                    if isinstance(payload, dict) and 'gas_total_m3' in payload:
+                        total = float(payload.get('gas_total_m3') or 0.0)
+                        if last_total_gas is not None:
+                            delta = max(0.0, total - last_total_gas)
+                        last_total_gas = total
+                    elif isinstance(payload, dict) and ('caudal_gas' in payload or 'caudal_gas_lmin' in payload or 'gas_flow_lmin' in payload):
+                        if 'caudal_gas' in payload:
+                            rate = float(payload.get('caudal_gas') or 0.0)
+                        else:
+                            lmin = float(payload.get('caudal_gas_lmin') or payload.get('gas_flow_lmin') or 0.0)
+                            rate = lmin * 0.06
+                        if last_ts is not None:
+                            dt_hours = max(0.0, (ts - last_ts).total_seconds() / 3600.0)
+                            delta = max(0.0, rate * dt_hours)
+                    elif r.gas_flow is not None:
+                        delta = max(0.0, float(r.gas_flow))
+                except Exception:
+                    pass
+                last_ts = ts
+                if delta > 0:
+                    day_key = ts.date().isoformat()
+                    daily_map[day_key] = daily_map.get(day_key, 0.0) + delta
+
+            # DataFrame
+            df = pd.DataFrame({
+                'Fecha': list(daily_map.keys()),
+                'Producción Real (m3/día)': list(daily_map.values()),
+            })
+
+            # Export options
+            fmt = request.query_params.get('format', 'excel')
+            if fmt == 'csv':
+                csv_buffer = io.StringIO()
+                df.to_csv(csv_buffer, index=False)
+                return HttpResponse(csv_buffer.getvalue(), content_type='text/csv', headers={
+                    'Content-Disposition': 'attachment; filename="reporte_rango.csv"'
+                })
+            else:
+                output = io.BytesIO()
+                with pd.ExcelWriter(output) as writer:
+                    df.to_excel(writer, index=False, sheet_name='ResumenRango')
+                output.seek(0)
+                return HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={
+                    'Content-Disposition': 'attachment; filename="reporte_rango.xlsx"'
+                })
+        except Exception as e:
+            return Response({"detail": f"Error generando reporte por rango: {e}"}, status=400)
+
+
+class ActuatorCommandAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Publica comando a MQTT y persiste el registro."""
+        serializer = ActuatorCommandSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        cmd: ActuatorCommand = serializer.save(status='PENDING')
+        # Publicar en MQTT
+        try:
+            import paho.mqtt.client as mqtt
+            broker_host = os.getenv("MQTT_BROKER_HOST", "mosquitto")
+            broker_port = int(os.getenv("MQTT_BROKER_PORT", "1883"))
+            topic = os.getenv("MQTT_CONTROL_TOPIC", "control/actuators")
+            payload = {
+                'device': cmd.device,
+                'target': cmd.target,
+                'action': cmd.action,
+                'value': cmd.value,
+                'extra': cmd.payload,
+            }
+            client = mqtt.Client()
+            client.connect(broker_host, broker_port, 60)
+            client.loop_start()
+            import json
+            client.publish(topic, json.dumps(payload))
+            client.loop_stop()
+            cmd.status = 'SENT'
+            cmd.response_message = f"Publicado en {topic}"
+            cmd.save()
+            return Response(ActuatorCommandSerializer(cmd).data, status=201)
+        except Exception as e:
+            cmd.status = 'ERROR'
+            cmd.response_message = str(e)
+            cmd.save()
+            return Response({"detail": f"Error enviando comando: {e}"}, status=500)
+
+
+class AlertsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        alerts = Alert.objects.filter(resolved=False).order_by('-created_at')[:100]
+        return Response(AlertSerializer(alerts, many=True).data)
+
+    def post(self, request):
+        serializer = AlertSerializer(data=request.data)
+        if serializer.is_valid():
+            alert = serializer.save()
+            return Response(AlertSerializer(alert).data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class ResolveAlertAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, alert_id: int):
+        alert = Alert.objects.filter(id=alert_id).first()
+        if not alert:
+            return Response({"detail": "Alerta no encontrada"}, status=404)
+        alert.resolved = True
+        alert.save()
+        return Response({"detail": "Alerta resuelta"})
+
+
+class CalibrationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        items = CalibrationRecord.objects.all().order_by('-date', '-created_at')[:500]
+        return Response(CalibrationRecordSerializer(items, many=True).data)
+
+    def post(self, request):
+        serializer = CalibrationRecordSerializer(data=request.data)
+        if serializer.is_valid():
+            item = serializer.save()
+            return Response(CalibrationRecordSerializer(item).data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class CalibrationExportAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        items = CalibrationRecord.objects.all().order_by('-date')
+        df = pd.DataFrame([
+            {
+                'Sensor': i.sensor_name,
+                'Fecha': i.date.isoformat(),
+                'Notas': i.notes,
+            } for i in items
+        ])
+        output = io.BytesIO()
+        with pd.ExcelWriter(output) as writer:
+            df.to_excel(writer, index=False, sheet_name='Calibraciones')
+        output.seek(0)
+        return HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={
+            'Content-Disposition': 'attachment; filename="calibraciones.xlsx"'
+        })

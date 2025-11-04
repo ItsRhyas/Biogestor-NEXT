@@ -71,3 +71,54 @@ class SensorReading(models.Model):
 		if self.stage and not self.stage.active:
 			raise Exception("No se pueden guardar lecturas en una etapa cerrada.")
 		super().save(*args, **kwargs)
+
+
+class ActuatorCommand(models.Model):
+	ACTION_CHOICES = [
+		("OPEN", "Abrir"),
+		("CLOSE", "Cerrar"),
+		("SET", "Establecer valor"),
+	]
+	STATUS_CHOICES = [
+		("PENDING", "Pendiente"),
+		("SENT", "Enviado"),
+		("ERROR", "Error"),
+	]
+	created_at = models.DateTimeField(auto_now_add=True)
+	device = models.CharField(max_length=50, help_text="electrovalvula|piston|otro")
+	target = models.CharField(max_length=100, help_text="identificador del dispositivo")
+	action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+	value = models.FloatField(null=True, blank=True)
+	payload = models.JSONField(null=True, blank=True)
+	status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
+	response_message = models.TextField(null=True, blank=True)
+
+	def __str__(self) -> str:
+		return f"{self.created_at:%Y-%m-%d %H:%M} {self.device}:{self.target} {self.action} ({self.status})"
+
+
+class Alert(models.Model):
+	LEVEL_CHOICES = [
+		("INFO", "Info"),
+		("WARN", "Advertencia"),
+		("CRIT", "Crítico"),
+	]
+	created_at = models.DateTimeField(auto_now_add=True)
+	level = models.CharField(max_length=5, choices=LEVEL_CHOICES)
+	message = models.CharField(max_length=255)
+	details = models.JSONField(null=True, blank=True)
+	resolved = models.BooleanField(default=False)
+
+	def __str__(self) -> str:
+		return f"[{self.level}] {self.message} - {'Resuelta' if self.resolved else 'Activa'}"
+
+
+class CalibrationRecord(models.Model):
+	created_at = models.DateTimeField(auto_now_add=True)
+	sensor_name = models.CharField(max_length=100)
+	date = models.DateField()
+	notes = models.TextField(blank=True)
+	attachment = models.FileField(upload_to='calibrations/', null=True, blank=True)
+
+	def __str__(self) -> str:
+		return f"Calibración {self.sensor_name} {self.date}"

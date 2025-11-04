@@ -25,11 +25,11 @@ def crear_perfil(sender, instance, created, **kwargs):
                 if isinstance(field, models.BooleanField) and field.name != 'id':
                     setattr(permisos, field.name, True)
             permisos.save()
-        
         # CREAR Perfil con los permisos
         perfil = Perfil.objects.create(user=instance, permisos=permisos)
-        
+
         # Si es primer usuario, aprobarlo automáticamente
         if es_primer_usuario:
             perfil.aprobado = True
+            perfil.rol = "ADMIN"
             perfil.save()

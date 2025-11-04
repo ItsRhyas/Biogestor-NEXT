@@ -6,10 +6,9 @@ from .models import Perfil, Permisos
 
 
 class PerfilSerializer (serializers.ModelSerializer):
-
     class Meta:
         model = Perfil
-        fields = ["aprobado"]
+        fields = ["aprobado", "rol"]
 
 
 class UsuarioSerializer (serializers.ModelSerializer):
