@@ -24,37 +24,37 @@ import Image from "next/image";
 const items = [
   {
     title: "Perfil",
-    url: "#",
+    url: "profiles",
     icon: Contact,
     subtitle: "Informacion del usuario",
   },
   {
     title: "Permisos",
-    url: "#",
+    url: "permissions",
     icon: UsersRound,
     subtitle: "Asignación de permisos",
   },
   {
     title: "Sensores",
-    url: "#",
+    url: "dashboard",
     icon: ChartSpline,
     subtitle: "Monitoreo en tiempo real",
   },
   {
     title: "Reportes",
-    url: "#",
+    url: "reports",
     icon: ClipboardList,
     subtitle: "Historial y análisis",
   },
   {
     title: "Calculadora de productos",
-    url: "#",
+    url: "calculator",
     icon: Calculator,
     subtitle: "Estimación de producción",
   },
   {
     title: "Asistente virtual",
-    url: "#",
+    url: "assistant",
     icon: BotMessageSquare,
     subtitle: "Soporte y ayuda",
   },
