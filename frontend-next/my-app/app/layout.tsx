@@ -17,6 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Biogestor",
   description: "Made by DigLabTeam",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -24,6 +29,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="es" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <head>
+        <link rel="icon" href="/favicon.ico" />
+      </head>
       <body>
         <SidebarProvider>
           <AppSidebar />
