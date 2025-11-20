@@ -1,4 +1,11 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import {
+  Contact,
+  ChartSpline,
+  Calculator,
+  ClipboardList,
+  BotMessageSquare,
+  UsersRound,
+} from "lucide-react";
 
 import {
   Sidebar,
@@ -11,32 +18,45 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+import Image from "next/image";
+
 // Menu items.
 const items = [
   {
-    title: "Home",
+    title: "Perfil",
     url: "#",
-    icon: Home,
+    icon: Contact,
+    subtitle: "Informacion del usuario",
   },
   {
-    title: "Inbox",
+    title: "Permisos",
     url: "#",
-    icon: Inbox,
+    icon: UsersRound,
+    subtitle: "Asignación de permisos",
   },
   {
-    title: "Calendar",
+    title: "Sensores",
     url: "#",
-    icon: Calendar,
+    icon: ChartSpline,
+    subtitle: "Monitoreo en tiempo real",
   },
   {
-    title: "Search",
+    title: "Reportes",
     url: "#",
-    icon: Search,
+    icon: ClipboardList,
+    subtitle: "Historial y análisis",
   },
   {
-    title: "Settings",
+    title: "Calculadora de productos",
     url: "#",
-    icon: Settings,
+    icon: Calculator,
+    subtitle: "Estimación de producción",
+  },
+  {
+    title: "Asistente virtual",
+    url: "#",
+    icon: BotMessageSquare,
+    subtitle: "Soporte y ayuda",
   },
 ];
 
@@ -45,15 +65,37 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel className="mb-4 border-b-2 pt-4 rounded-b-none mt-2 pb-8">
+            <div className="flex items-start gap-2">
+              <Image
+                src="/logo.png"
+                alt="Biogestor"
+                width={200}
+                height={64}
+                priority
+              />
+            </div>
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                    <a
+                      href={item.url}
+                      className="flex items-start gap-2 h-10 p-0"
+                    >
+                      <item.icon className="mt-1" />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium leading-tight">
+                          {item.title}
+                        </span>
+                        {item.subtitle && (
+                          <span className="text-xs text-gray-500 leading-snug">
+                            {item.subtitle}
+                          </span>
+                        )}
+                      </div>
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
